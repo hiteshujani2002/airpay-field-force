@@ -56,43 +56,52 @@ const Workflow = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+        <div className="space-y-12 max-w-6xl mx-auto">
           {steps.map((step, index) => (
             <div key={index} className="group">
-              <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-3xl p-8 shadow-soft hover:shadow-elegant transition-all duration-500 hover:-translate-y-2 hover:bg-white/90">
-                {/* Image Container */}
-                <div className="relative mb-6 mx-auto w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                  <img 
-                    src={step.image} 
-                    alt={step.title}
-                    className="w-16 h-16 object-cover rounded-xl"
-                  />
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-xs font-bold text-white">{step.number}</span>
+              <div className={`flex flex-col lg:flex-row items-center gap-8 lg:gap-12 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
+                {/* Content Side */}
+                <div className="flex-1 space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg">
+                      <span className="text-lg font-bold text-white">{step.number}</span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300">
+                      {step.title}
+                    </h3>
                   </div>
-                </div>
-
-                {/* Content */}
-                <div className="space-y-4 text-center">
-                  <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
-                    {step.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed text-sm">
+                  
+                  <p className="text-lg text-muted-foreground leading-relaxed">
                     {step.description}
                   </p>
                   
-                  {/* CTA Button */}
-                  <div className="pt-4">
+                  <div className="pt-2">
                     <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="bg-white/50 border-primary/20 text-primary hover:bg-primary hover:text-white hover:border-primary transition-all duration-300 rounded-xl px-6"
+                      variant="default" 
+                      size="lg"
+                      className="bg-primary hover:bg-primary/90 text-white rounded-xl px-8 py-3 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       {step.cta}
                     </Button>
                   </div>
                 </div>
+
+                {/* Image Side */}
+                <div className="flex-1 flex justify-center">
+                  <div className="relative w-80 h-80 rounded-3xl overflow-hidden bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center shadow-soft hover:shadow-elegant transition-all duration-500 group-hover:scale-105">
+                    <img 
+                      src={step.image} 
+                      alt={step.title}
+                      className="w-64 h-64 object-cover rounded-2xl"
+                    />
+                  </div>
+                </div>
               </div>
+              
+              {/* Separator line between sections (except last) */}
+              {index < steps.length - 1 && (
+                <div className="mt-12 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
+              )}
             </div>
           ))}
         </div>
