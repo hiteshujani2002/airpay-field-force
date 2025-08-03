@@ -17,33 +17,44 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 20% 11%;
 
-    --primary: 202 89% 45%;
+    --primary: 250 84% 68%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 202 20% 97%;
+    --secondary: 250 100% 97%;
     --secondary-foreground: 222 20% 11%;
 
-    --muted: 210 20% 96%;
+    --muted: 250 100% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 214 20% 97%;
+    --accent: 250 100% 97%;
     --accent-foreground: 222 20% 11%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 202 20% 91%;
-    --input: 202 20% 91%;
-    --ring: 202 89% 45%;
+    --border: 250 100% 91%;
+    --input: 250 100% 91%;
+    --ring: 250 84% 68%;
 
-    /* Custom design tokens */
-    --primary-light: 202 89% 95%;
-    --primary-glow: 202 89% 85%;
+    /* Custom design tokens - Purple theme inspired by modern SAAS */
+    --primary-light: 250 100% 97%;
+    --primary-glow: 250 100% 90%;
     --cpv-yellow: 45 95% 35%;
-    --gradient-primary: linear-gradient(135deg, hsl(202 89% 45%), hsl(202 89% 55%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(202 20% 98%));
-    --shadow-elegant: 0 10px 30px -10px hsl(202 89% 45% / 0.2);
-    --shadow-soft: 0 4px 20px -4px hsl(202 20% 50% / 0.1);
+    --purple-50: 250 100% 97%;
+    --purple-100: 249 95% 95%;
+    --purple-200: 251 91% 91%;
+    --purple-300: 250 84% 84%;
+    --purple-400: 249 75% 75%;
+    --purple-500: 250 84% 68%;
+    --purple-600: 251 91% 60%;
+    --purple-700: 252 100% 53%;
+    --gradient-primary: linear-gradient(135deg, hsl(250 84% 68%), hsl(249 75% 75%));
+    --gradient-purple: linear-gradient(135deg, hsl(250 84% 68%), hsl(251 91% 60%));
+    --gradient-subtle: linear-gradient(180deg, hsl(250 100% 97%), hsl(0 0% 100%));
+    --gradient-card: linear-gradient(135deg, hsl(250 100% 97%), hsl(249 95% 95%));
+    --shadow-elegant: 0 10px 30px -10px hsl(250 84% 68% / 0.2);
+    --shadow-soft: 0 4px 20px -4px hsl(250 50% 50% / 0.1);
+    --shadow-purple: 0 20px 40px -10px hsl(250 84% 68% / 0.3);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --radius: 0.5rem;

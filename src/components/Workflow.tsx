@@ -33,7 +33,7 @@ const Workflow = () => {
   ];
 
   return (
-    <section id="workflow" className="py-16 sm:py-20">
+    <section id="workflow" className="py-16 sm:py-20 bg-gradient-to-br from-purple-50 to-purple-100">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-4 mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
@@ -46,19 +46,19 @@ const Workflow = () => {
 
         <div className="relative">
           {/* Connection line */}
-          <div className="hidden lg:block absolute top-20 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/20 via-primary to-primary/20"></div>
+          <div className="hidden lg:block absolute top-20 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-200 via-purple-400 to-purple-200"></div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
             {steps.map((step, index) => (
               <div key={index} className="relative">
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex items-center justify-center w-16 h-16 bg-primary rounded-xl mb-6 mx-auto relative z-10">
-                    <span className="text-2xl font-bold text-primary-foreground">{step.number}</span>
+                <div className="bg-white border-0 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl mb-6 mx-auto relative z-10 shadow-lg">
+                    <span className="text-2xl font-bold text-white">{step.number}</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-4 text-center">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">
                     {step.title}
                   </h3>
-                  <p className="text-muted-foreground text-center leading-relaxed">
+                  <p className="text-gray-600 text-center leading-relaxed">
                     {step.description}
                   </p>
                 </div>

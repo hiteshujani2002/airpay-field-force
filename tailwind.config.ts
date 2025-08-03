@@ -30,6 +30,16 @@ export default {
 					light: 'hsl(var(--primary-light))',
 					glow: 'hsl(var(--primary-glow))'
 				},
+				purple: {
+					50: 'hsl(var(--purple-50))',
+					100: 'hsl(var(--purple-100))',
+					200: 'hsl(var(--purple-200))',
+					300: 'hsl(var(--purple-300))',
+					400: 'hsl(var(--purple-400))',
+					500: 'hsl(var(--purple-500))',
+					600: 'hsl(var(--purple-600))',
+					700: 'hsl(var(--purple-700))'
+				},
 				cpv: {
 					yellow: 'hsl(var(--cpv-yellow))'
 				},

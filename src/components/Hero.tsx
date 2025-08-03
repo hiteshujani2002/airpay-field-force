@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Shield, Users } from "lucide-react";
-import heroImage from "@/assets/hero-cpv.jpg";
+import heroImage from "@/assets/hero-banking-verification.jpg";
 
 const Hero = () => {
   return (
-    <section className="pt-20 pb-16 sm:pt-24 sm:pb-20">
+    <section className="pt-20 pb-16 sm:pt-24 sm:pb-20 bg-gradient-to-br from-purple-50 to-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
@@ -23,10 +23,10 @@ const Hero = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="text-lg px-8 py-6">
+              <Button size="lg" className="text-lg px-8 py-6 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg">
                 Start Free Trial
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-purple-300 text-purple-700 hover:bg-purple-50">
                 Schedule Demo
               </Button>
             </div>
@@ -48,11 +48,11 @@ const Hero = () => {
           </div>
 
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10 rounded-3xl blur-3xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-purple-600/20 rounded-3xl blur-3xl"></div>
             <img 
               src={heroImage} 
               alt="Contact Point Verification Process" 
-              className="relative rounded-2xl shadow-2xl w-full h-auto"
+              className="relative rounded-3xl shadow-2xl w-full h-auto"
             />
           </div>
         </div>
