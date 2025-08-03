@@ -1,4 +1,5 @@
 import CPVHubLogo from "./CPVHubLogo";
+// Updated to use CPVHubLogo instead of AirpayLogo
 
 const Footer = () => {
   return (
