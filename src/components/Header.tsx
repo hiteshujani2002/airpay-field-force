@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import AirpayLogo from "./AirpayLogo";
+import CPVHubLogo from "./CPVHubLogo";
 
 const Header = () => {
   return (
@@ -7,10 +7,7 @@ const Header = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center space-x-3">
-            <div className="flex flex-col items-center">
-              <AirpayLogo className="h-8 w-auto" />
-              <div className="text-xs font-bold text-cpv-yellow uppercase tracking-[0.15em] mt-1">CPV</div>
-            </div>
+            <CPVHubLogo className="h-8 w-auto" />
           </div>
           
           <nav className="hidden md:flex items-center space-x-8">

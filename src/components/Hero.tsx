@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Shield, Users } from "lucide-react";
 import heroImage from "@/assets/hero-banking-verification.jpg";
 
 const Hero = () => {
@@ -22,28 +21,10 @@ const Hero = () => {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="text-lg px-8 py-6 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg">
-                Start Free Trial
-              </Button>
+            <div className="flex justify-center sm:justify-start">
               <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-purple-300 text-purple-700 hover:bg-purple-50">
                 Schedule Demo
               </Button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8">
-              <div className="flex items-center space-x-3">
-                <CheckCircle className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">Geo-tagged Photos</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Shield className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">Secure Reports</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Users className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">Multi-Role Access</span>
-              </div>
             </div>
           </div>
 

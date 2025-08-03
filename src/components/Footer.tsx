@@ -1,4 +1,4 @@
-import AirpayLogo from "./AirpayLogo";
+import CPVHubLogo from "./CPVHubLogo";
 
 const Footer = () => {
   return (
@@ -6,12 +6,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex flex-col items-center">
-                <AirpayLogo className="h-8 w-auto [&_text]:fill-white" />
-                <div className="text-xs font-bold text-cpv-yellow uppercase tracking-[0.15em] mt-1">CPV</div>
-              </div>
-            </div>
+            <CPVHubLogo className="h-8 w-auto [&_text]:fill-white" />
             <p className="text-gray-300 leading-relaxed">
               Streamlining contact point verification for financial services with cutting-edge digital solutions.
             </p>
@@ -50,7 +45,7 @@ const Footer = () => {
 
         <div className="border-t border-gray-700 mt-12 pt-8 text-center">
           <p className="text-gray-300">
-            © 2024 Airpay Payment Services. All rights reserved.
+            © 2024 CPV Hub. All rights reserved.
           </p>
         </div>
       </div>
