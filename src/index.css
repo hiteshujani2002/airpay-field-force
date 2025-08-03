@@ -17,10 +17,10 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 20% 11%;
 
-    --primary: 214 100% 50%;
+    --primary: 202 89% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 20% 97%;
+    --secondary: 202 20% 97%;
     --secondary-foreground: 222 20% 11%;
 
     --muted: 210 20% 96%;
@@ -32,17 +32,17 @@ All colors MUST be HSL.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 91%;
-    --input: 214 20% 91%;
-    --ring: 214 100% 50%;
+    --border: 202 20% 91%;
+    --input: 202 20% 91%;
+    --ring: 202 89% 45%;
 
     /* Custom design tokens */
-    --primary-light: 214 100% 95%;
-    --primary-glow: 214 100% 85%;
-    --gradient-primary: linear-gradient(135deg, hsl(214 100% 50%), hsl(214 100% 60%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(214 20% 98%));
-    --shadow-elegant: 0 10px 30px -10px hsl(214 100% 50% / 0.2);
-    --shadow-soft: 0 4px 20px -4px hsl(214 20% 50% / 0.1);
+    --primary-light: 202 89% 95%;
+    --primary-glow: 202 89% 85%;
+    --gradient-primary: linear-gradient(135deg, hsl(202 89% 45%), hsl(202 89% 55%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(202 20% 98%));
+    --shadow-elegant: 0 10px 30px -10px hsl(202 89% 45% / 0.2);
+    --shadow-soft: 0 4px 20px -4px hsl(202 20% 50% / 0.1);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --radius: 0.5rem;
