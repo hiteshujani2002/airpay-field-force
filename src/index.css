@@ -39,6 +39,7 @@ All colors MUST be HSL.
     /* Custom design tokens */
     --primary-light: 202 89% 95%;
     --primary-glow: 202 89% 85%;
+    --cpv-yellow: 45 95% 35%;
     --gradient-primary: linear-gradient(135deg, hsl(202 89% 45%), hsl(202 89% 55%));
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(202 20% 98%));
     --shadow-elegant: 0 10px 30px -10px hsl(202 89% 45% / 0.2);

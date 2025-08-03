@@ -1,3 +1,5 @@
+import AirpayLogo from "./AirpayLogo";
+
 const Footer = () => {
   return (
     <footer className="bg-foreground text-background py-12">
@@ -5,9 +7,9 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              <div className="flex flex-col items-start">
-                <div className="text-2xl font-bold text-primary tracking-wide">airpay</div>
-                <div className="text-xs font-semibold text-primary/70 uppercase tracking-[0.2em] -mt-1">CPV</div>
+              <div className="flex flex-col items-center">
+                <AirpayLogo className="h-8 w-auto [&_text]:fill-white" />
+                <div className="text-xs font-bold text-cpv-yellow uppercase tracking-[0.15em] mt-1">CPV</div>
               </div>
             </div>
             <p className="text-background/70 leading-relaxed">

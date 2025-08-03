@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import AirpayLogo from "./AirpayLogo";
 
 const Header = () => {
   return (
@@ -6,9 +7,9 @@ const Header = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center space-x-3">
-            <div className="flex flex-col items-start">
-              <div className="text-2xl font-bold text-primary tracking-wide">airpay</div>
-              <div className="text-xs font-semibold text-primary/70 uppercase tracking-[0.2em] -mt-1">CPV</div>
+            <div className="flex flex-col items-center">
+              <AirpayLogo className="h-8 w-auto" />
+              <div className="text-xs font-bold text-cpv-yellow uppercase tracking-[0.15em] mt-1">CPV</div>
             </div>
           </div>
           

@@ -30,6 +30,9 @@ export default {
 					light: 'hsl(var(--primary-light))',
 					glow: 'hsl(var(--primary-glow))'
 				},
+				cpv: {
+					yellow: 'hsl(var(--cpv-yellow))'
+				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
