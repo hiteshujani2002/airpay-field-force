@@ -22,8 +22,8 @@ const Hero = () => {
             </div>
 
             <div className="flex justify-center sm:justify-start">
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-purple-300 text-purple-700 hover:bg-purple-50">
-                Schedule Demo
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-purple-300 text-purple-700 hover:bg-purple-50" asChild>
+                <a href="/dashboard">Schedule Demo</a>
               </Button>
             </div>
           </div>

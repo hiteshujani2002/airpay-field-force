@@ -23,11 +23,11 @@ const Header = () => {
           </nav>
 
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" className="hidden sm:inline-flex text-gray-600 hover:text-purple-600">
-              Sign In
+            <Button variant="ghost" className="hidden sm:inline-flex text-gray-600 hover:text-purple-600" asChild>
+              <a href="/dashboard">Sign In</a>
             </Button>
-            <Button className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800">
-              Get Started
+            <Button className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800" asChild>
+              <a href="/dashboard">Get Started</a>
             </Button>
           </div>
         </div>
