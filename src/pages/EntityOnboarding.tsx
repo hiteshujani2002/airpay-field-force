@@ -14,7 +14,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft, Upload, Building2, Users } from 'lucide-react'
+import { ArrowLeft, Upload, Building2, Users, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 type EntityType = 'company' | 'agency' | null
 type OnboardingStep = 'selection' | 'details' | 'documents' | 'complete'
@@ -36,7 +37,7 @@ const companyDetailsSchema = z.object({
   officeOwnership: z.string().min(1, 'Please select office ownership')
 })
 
-const agencyDetailsSchema = companyDetailsSchema.extend({
+const agencyDetailsSchema = companyDetailsSchema.omit({ initiative: true }).extend({
   mapWith: z.array(z.string()).min(1, 'Please select at least one company to map with')
 })
 
@@ -50,11 +51,37 @@ const indianStates = [
 ]
 
 const cityMap: { [key: string]: string[] } = {
-  'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Aurangabad'],
+  'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore', 'Kurnool'],
+  'Arunachal Pradesh': ['Itanagar', 'Naharlagun', 'Pasighat', 'Ziro', 'Bomdila'],
+  'Assam': ['Guwahati', 'Silchar', 'Dibrugarh', 'Jorhat', 'Nagaon', 'Tinsukia', 'Tezpur'],
+  'Bihar': ['Patna', 'Gaya', 'Bhagalpur', 'Muzaffarpur', 'Purnia'],
+  'Chhattisgarh': ['Raipur', 'Bhilai', 'Korba', 'Bilaspur', 'Durg'],
+  'Goa': ['Panaji', 'Margao', 'Vasco da Gama', 'Mapusa', 'Ponda'],
+  'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar'],
+  'Haryana': ['Gurugram', 'Faridabad', 'Panipat', 'Ambala', 'Yamunanagar'],
+  'Himachal Pradesh': ['Shimla', 'Dharamshala', 'Solan', 'Mandi', 'Kullu'],
+  'Jharkhand': ['Ranchi', 'Jamshedpur', 'Dhanbad', 'Bokaro', 'Deoghar'],
   'Karnataka': ['Bangalore', 'Mysore', 'Hubli', 'Mangalore', 'Belgaum'],
+  'Kerala': ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Thrissur', 'Kollam'],
+  'Madhya Pradesh': ['Bhopal', 'Indore', 'Gwalior', 'Jabalpur', 'Ujjain'],
+  'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Aurangabad'],
+  'Manipur': ['Imphal', 'Thoubal', 'Bishnupur', 'Churachandpur', 'Kakching'],
+  'Meghalaya': ['Shillong', 'Tura', 'Jowai', 'Nongpoh', 'Baghmara'],
+  'Mizoram': ['Aizawl', 'Lunglei', 'Saiha', 'Champhai', 'Serchhip'],
+  'Nagaland': ['Kohima', 'Dimapur', 'Mokokchung', 'Tuensang', 'Wokha'],
+  'Odisha': ['Bhubaneswar', 'Cuttack', 'Rourkela', 'Berhampur', 'Sambalpur'],
+  'Punjab': ['Chandigarh', 'Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala'],
+  'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur', 'Kota', 'Bikaner'],
+  'Sikkim': ['Gangtok', 'Namchi', 'Geyzing', 'Mangan', 'Rangpo'],
   'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem'],
+  'Telangana': ['Hyderabad', 'Warangal', 'Nizamabad', 'Khammam', 'Karimnagar'],
+  'Tripura': ['Agartala', 'Dharmanagar', 'Udaipur', 'Kailasahar', 'Belonia'],
+  'Uttar Pradesh': ['Lucknow', 'Kanpur', 'Ghaziabad', 'Agra', 'Meerut'],
+  'Uttarakhand': ['Dehradun', 'Haridwar', 'Roorkee', 'Rudrapur', 'Kashipur'],
+  'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Asansol', 'Siliguri'],
   'Delhi': ['New Delhi', 'Central Delhi', 'North Delhi', 'South Delhi', 'East Delhi'],
-  'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar']
+  'Jammu and Kashmir': ['Srinagar', 'Jammu', 'Anantnag', 'Baramulla', 'Kathua'],
+  'Ladakh': ['Leh', 'Kargil', 'Nubra', 'Zanskar', 'Changthang']
 }
 
 const mockCompanies = [
@@ -68,6 +95,7 @@ export default function EntityOnboarding() {
   const [selectedState, setSelectedState] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   const companyForm = useForm({
     resolver: zodResolver(companyDetailsSchema),
@@ -104,7 +132,6 @@ export default function EntityOnboarding() {
       state: '',
       city: '',
       pincode: '',
-      initiative: '',
       officeOwnership: '',
       mapWith: []
     }
@@ -123,6 +150,10 @@ export default function EntityOnboarding() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     setUploadedFiles(prev => [...prev, ...files])
+  }
+
+  const handleFileDelete = (indexToDelete: number) => {
+    setUploadedFiles(prev => prev.filter((_, index) => index !== indexToDelete))
   }
 
   const handleFinalSubmit = () => {
@@ -144,7 +175,7 @@ export default function EntityOnboarding() {
   }
 
   const renderEntitySelection = () => (
-    <Dialog open={currentStep === 'selection'} onOpenChange={() => {}}>
+    <Dialog open={currentStep === 'selection'} onOpenChange={() => navigate('/dashboard')}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center">Entity Onboarding</DialogTitle>
@@ -180,9 +211,9 @@ export default function EntityOnboarding() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => setCurrentStep('selection')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <X className="h-4 w-4 mr-2" />
+            Close
           </Button>
           <div className="flex-1">
             <h2 className="text-2xl font-bold">Company Onboarding Form</h2>
@@ -476,9 +507,9 @@ export default function EntityOnboarding() {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => setCurrentStep('selection')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <X className="h-4 w-4 mr-2" />
+            Close
           </Button>
           <div className="flex-1">
             <h2 className="text-2xl font-bold">Agency Onboarding Form</h2>
@@ -715,43 +746,27 @@ export default function EntityOnboarding() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={agencyForm.control}
-                    name="initiative"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Initiative</FormLabel>
+                <FormField
+                  control={agencyForm.control}
+                  name="officeOwnership"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Office Ownership</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <Input {...field} placeholder="Enter initiative" />
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select ownership" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={agencyForm.control}
-                    name="officeOwnership"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Office Ownership</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select ownership" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="rented">Rented</SelectItem>
-                            <SelectItem value="owned">Owned</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                        <SelectContent>
+                          <SelectItem value="rented">Rented</SelectItem>
+                          <SelectItem value="owned">Owned</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={agencyForm.control}
@@ -871,10 +886,20 @@ export default function EntityOnboarding() {
               <h4 className="font-semibold">Uploaded Files:</h4>
               {uploadedFiles.map((file, index) => (
                 <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                  <span className="text-sm">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleFileDelete(index)}
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               ))}
             </div>
