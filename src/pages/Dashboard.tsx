@@ -18,7 +18,7 @@ const menuItems = [
   {
     title: "Entity Onboarding",
     icon: Building2,
-    url: "/dashboard/entity-onboarding",
+    url: "/entity-onboarding",
   },
   {
     title: "Create CPV Forms", 
