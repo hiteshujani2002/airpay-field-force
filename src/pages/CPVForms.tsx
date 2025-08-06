@@ -947,6 +947,7 @@ const CPVForms = () => {
                       value={newSectionName}
                       onChange={(e) => setNewSectionName(e.target.value)}
                       placeholder="Enter section name"
+                      onKeyDown={(e) => e.stopPropagation()}
                     />
                   </div>
                   
