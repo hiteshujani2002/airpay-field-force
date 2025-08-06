@@ -86,6 +86,7 @@ const CPVForms = () => {
   const [newQuestion, setNewQuestion] = useState({ title: "", dataType: "alphabets", mandatory: false });
   const [newImageField, setNewImageField] = useState({ documentName: "", mandatory: false, numberOfClicks: 1 });
   const [newSectionName, setNewSectionName] = useState("");
+  const [hasProceededToSectionBuilder, setHasProceededToSectionBuilder] = useState(false);
 
   const initiatives = ["Banking Initiative", "Insurance Initiative", "NA"];
   
@@ -916,6 +917,8 @@ const CPVForms = () => {
                 <Button onClick={() => {
                   setShowAdditionalSectionDialog(false);
                   setCurrentStep(4);
+                  setHasProceededToSectionBuilder(false);
+                  setNewSectionName("");
                 }}>
                   Yes
                 </Button>
@@ -939,7 +942,7 @@ const CPVForms = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!newSectionName ? (
+              {!hasProceededToSectionBuilder ? (
                 <>
                   <div>
                     <Label>Section Name</Label>
@@ -955,22 +958,23 @@ const CPVForms = () => {
                     <Button variant="outline" onClick={goBack} className="w-full">
                       Back
                     </Button>
-                    <Button 
-                      onClick={() => {
-                        if (newSectionName) {
-                          const newSection: FormSection = {
-                            id: Date.now().toString(),
-                            name: newSectionName,
-                            fields: []
-                          };
-                          setCustomSections([...customSections, newSection]);
-                          setCurrentCustomSectionId(newSection.id);
-                          setCurrentSection("custom");
-                        }
-                      }} 
-                      disabled={!newSectionName}
-                      className="w-full"
-                    >
+                     <Button 
+                       onClick={() => {
+                         if (newSectionName) {
+                           const newSection: FormSection = {
+                             id: Date.now().toString(),
+                             name: newSectionName,
+                             fields: []
+                           };
+                           setCustomSections([...customSections, newSection]);
+                           setCurrentCustomSectionId(newSection.id);
+                           setCurrentSection("custom");
+                           setHasProceededToSectionBuilder(true);
+                         }
+                       }} 
+                       disabled={!newSectionName}
+                       className="w-full"
+                     >
                       Proceed
                     </Button>
                     <Button 
