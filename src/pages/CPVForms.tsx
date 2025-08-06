@@ -127,6 +127,7 @@ const CPVForms = () => {
 
   const handleBackToDashboard = () => {
     setShowBackToDashboardDialog(false);
+    setCurrentView("dashboard");
     resetForm();
   };
 
@@ -220,6 +221,9 @@ const CPVForms = () => {
     setCurrentSection("personal");
     setCustomSections([]);
     setEditingFormId(null);
+    setNewSectionName("");
+    setHasProceededToSectionBuilder(false);
+    setCurrentCustomSectionId("");
     setPersonalFields([
       { id: "1", title: "Person Name", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
       { id: "2", title: "Contact Number", dataType: "numbers", mandatory: true, visible: true, type: "text" },
@@ -421,7 +425,7 @@ const CPVForms = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={goBack}>
+          <Button variant="ghost" onClick={() => setShowBackToDashboardDialog(true)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
