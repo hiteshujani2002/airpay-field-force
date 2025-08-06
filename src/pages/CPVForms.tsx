@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Plus, Eye, EyeOff, X, Upload, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Eye, EyeOff, X, Upload, Trash2, Edit } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,9 +43,10 @@ const CPVForms = () => {
   const { toast } = useToast();
   
   // Main state
-  const [currentView, setCurrentView] = useState<"dashboard" | "create">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "create" | "preview" | "edit">("dashboard");
   const [currentStep, setCurrentStep] = useState(1);
   const [forms, setForms] = useState<CPVForm[]>([]);
+  const [editingFormId, setEditingFormId] = useState<string | null>(null);
   
   // Form creation state
   const [selectedInitiative, setSelectedInitiative] = useState("");
@@ -98,6 +99,16 @@ const CPVForms = () => {
     switch (currentSection) {
       case "personal": setPersonalFields(fields); break;
       case "business": setBusinessFields(fields); break;
+    }
+  };
+
+  const goBack = () => {
+    if (currentStep === 1) {
+      setCurrentView("dashboard");
+    } else if (currentStep === 6) {
+      setCurrentStep(5); // Preview goes back to CPV Agent Details
+    } else {
+      setCurrentStep(currentStep - 1);
     }
   };
 
@@ -170,12 +181,155 @@ const CPVForms = () => {
     setShowSuccessDialog(true);
   };
 
+  const editForm = (formId: string) => {
+    const form = forms.find(f => f.id === formId);
+    if (form) {
+      setEditingFormId(formId);
+      setSelectedInitiative(form.initiative);
+      const personalSection = form.sections.find(s => s.id === "personal");
+      const businessSection = form.sections.find(s => s.id === "business");
+      if (personalSection) setPersonalFields(personalSection.fields);
+      if (businessSection) setBusinessFields(businessSection.fields);
+      setCustomSections(form.sections.filter(s => s.id !== "personal" && s.id !== "business"));
+      setCurrentView("create");
+      setCurrentStep(1);
+    }
+  };
+
   const resetForm = () => {
     setCurrentStep(1);
     setSelectedInitiative("");
     setCurrentSection("personal");
     setCustomSections([]);
+    setEditingFormId(null);
+    setPersonalFields([
+      { id: "1", title: "Person Name", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+      { id: "2", title: "Contact Number", dataType: "numbers", mandatory: true, visible: true, type: "text" },
+      { id: "3", title: "Designation", dataType: "alphabets", mandatory: false, visible: true, type: "text" },
+      { id: "4", title: "Personal Address", dataType: "alphanumeric", mandatory: true, visible: true, type: "text" },
+    ]);
+    setBusinessFields([
+      { id: "1", title: "Name of Business", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+      { id: "2", title: "Office Address", dataType: "alphanumeric", mandatory: true, visible: true, type: "text" },
+      { id: "3", title: "Pincode", dataType: "numbers", mandatory: true, visible: true, type: "text" },
+      { id: "4", title: "Nearby Landmark", dataType: "alphanumeric", mandatory: false, visible: true, type: "text" },
+      { id: "5", title: "Address Confirmed", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+      { id: "6", title: "Nature of Business", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+      { id: "7", title: "Type of business", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+      { id: "8", title: "Office Ownership", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+      { id: "9", title: "Number of years in present business", dataType: "numbers", mandatory: false, visible: true, type: "text" },
+      { id: "10", title: "Number of years in the present office", dataType: "numbers", mandatory: false, visible: true, type: "text" },
+    ]);
     setCurrentView("dashboard");
+  };
+
+  const renderImagePlaceholders = (field: CustomField) => {
+    if (field.type !== "image" || !field.numberOfClicks) return null;
+    
+    const placeholders = [];
+    for (let i = 0; i < field.numberOfClicks; i++) {
+      placeholders.push(
+        <div key={i} className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
+          <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm text-gray-500">
+            Upload {field.documentName} {field.numberOfClicks > 1 ? `(${i + 1}/${field.numberOfClicks})` : ''}
+          </p>
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        {placeholders}
+      </div>
+    );
+  };
+
+  const renderPreviewForm = () => {
+    const allSections = [
+      { id: "personal", name: "Personal Details", fields: personalFields },
+      { id: "business", name: "Business Details", fields: businessFields },
+      ...customSections
+    ];
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>CPV Form Preview</CardTitle>
+          <CardDescription>
+            This is how your form will appear to CPV agents
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {allSections.map((section) => (
+            <div key={section.id} className="space-y-4">
+              <h3 className="text-lg font-semibold border-b pb-2">{section.name}</h3>
+              {section.fields
+                .filter(field => field.visible)
+                .map((field) => (
+                  <div key={field.id} className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      {field.title}
+                      {field.mandatory && <span className="text-red-500">*</span>}
+                    </Label>
+                    {field.type === "text" ? (
+                      <Input 
+                        placeholder={`Enter ${field.title.toLowerCase()}`} 
+                        disabled 
+                        className="bg-gray-50"
+                      />
+                    ) : (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Document: {field.documentName} | Required uploads: {field.numberOfClicks}
+                        </p>
+                        {renderImagePlaceholders(field)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
+          ))}
+          
+          {/* CPV Agent Details Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2">CPV Agent Details</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Visit Date *</Label>
+                <Input type="date" disabled className="bg-gray-50" />
+              </div>
+              <div>
+                <Label>Visit Time *</Label>
+                <Input type="time" disabled className="bg-gray-50" />
+              </div>
+              <div>
+                <Label>Employee Name *</Label>
+                <Input placeholder="Agent will fill this" disabled className="bg-gray-50" />
+              </div>
+              <div>
+                <Label>Employee Code *</Label>
+                <Input placeholder="Agent will fill this" disabled className="bg-gray-50" />
+              </div>
+            </div>
+            <div>
+              <Label>Employee Signature *</Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+                <p className="text-muted-foreground">Signature area for CPV agent</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <Button onClick={goBack} variant="outline" className="w-full">
+              Back
+            </Button>
+            <Button onClick={finalizeCPVForm} className="w-full">
+              Confirm & Create
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   if (currentView === "dashboard") {
@@ -214,13 +368,15 @@ const CPVForms = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {forms.map((form) => (
-                <Card key={form.id} className="hover:shadow-lg transition-shadow">
+                <Card 
+                  key={form.id} 
+                  className="hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => editForm(form.id)}
+                >
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
                       {form.name}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        #{form.id}
-                      </span>
+                      <Edit className="h-4 w-4 text-muted-foreground" />
                     </CardTitle>
                     <CardDescription>
                       Initiative: {form.initiative}
@@ -247,11 +403,13 @@ const CPVForms = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => setCurrentView("dashboard")}>
+          <Button variant="ghost" onClick={goBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Forms
+            Back
           </Button>
-          <h1 className="text-2xl font-bold">Create CPV Form</h1>
+          <h1 className="text-2xl font-bold">
+            {editingFormId ? "Edit CPV Form" : "Create CPV Form"}
+          </h1>
         </div>
 
         <div className="mb-8">
@@ -330,47 +488,63 @@ const CPVForms = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Data Type</Label>
-                      <Select 
-                        value={field.dataType} 
-                        onValueChange={(value) => {
-                          const updatedFields = personalFields.map(f => 
-                            f.id === field.id ? { ...f, dataType: value as any } : f
-                          );
-                          setPersonalFields(updatedFields);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="alphabets">Alphabets</SelectItem>
-                          <SelectItem value="numbers">Numbers</SelectItem>
-                          <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {field.type === "text" ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Data Type</Label>
+                        <Select 
+                          value={field.dataType} 
+                          onValueChange={(value) => {
+                            const updatedFields = personalFields.map(f => 
+                              f.id === field.id ? { ...f, dataType: value as any } : f
+                            );
+                            setPersonalFields(updatedFields);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="alphabets">Alphabets</SelectItem>
+                            <SelectItem value="numbers">Numbers</SelectItem>
+                            <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 pt-6">
+                        <Checkbox 
+                          id={`mandatory-${field.id}`}
+                          checked={field.mandatory}
+                          onCheckedChange={(checked) => {
+                            const updatedFields = personalFields.map(f => 
+                              f.id === field.id ? { ...f, mandatory: !!checked } : f
+                            );
+                            setPersonalFields(updatedFields);
+                          }}
+                        />
+                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center space-x-2 pt-6">
-                      <Checkbox 
-                        id={`mandatory-${field.id}`}
-                        checked={field.mandatory}
-                        onCheckedChange={(checked) => {
-                          const updatedFields = personalFields.map(f => 
-                            f.id === field.id ? { ...f, mandatory: !!checked } : f
-                          );
-                          setPersonalFields(updatedFields);
-                        }}
-                      />
-                      <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                    </div>
-                  </div>
-
-                  {field.type === "image" && (
-                    <div className="text-sm text-muted-foreground">
-                      Document: {field.documentName} | Clicks: {field.numberOfClicks}
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-sm text-muted-foreground">
+                        Document: {field.documentName} | Uploads Required: {field.numberOfClicks}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`mandatory-${field.id}`}
+                          checked={field.mandatory}
+                          onCheckedChange={(checked) => {
+                            const updatedFields = personalFields.map(f => 
+                              f.id === field.id ? { ...f, mandatory: !!checked } : f
+                            );
+                            setPersonalFields(updatedFields);
+                          }}
+                        />
+                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
+                      </div>
+                      {renderImagePlaceholders(field)}
                     </div>
                   )}
                 </div>
@@ -482,9 +656,14 @@ const CPVForms = () => {
                 </Dialog>
               </div>
 
-              <Button onClick={() => setCurrentStep(3)} className="w-full">
-                Next
-              </Button>
+              <div className="flex gap-4">
+                <Button variant="outline" onClick={goBack} className="w-full">
+                  Back
+                </Button>
+                <Button onClick={() => setCurrentStep(3)} className="w-full">
+                  Next
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -528,47 +707,63 @@ const CPVForms = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Data Type</Label>
-                      <Select 
-                        value={field.dataType} 
-                        onValueChange={(value) => {
-                          const updatedFields = businessFields.map(f => 
-                            f.id === field.id ? { ...f, dataType: value as any } : f
-                          );
-                          setBusinessFields(updatedFields);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="alphabets">Alphabets</SelectItem>
-                          <SelectItem value="numbers">Numbers</SelectItem>
-                          <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {field.type === "text" ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Data Type</Label>
+                        <Select 
+                          value={field.dataType} 
+                          onValueChange={(value) => {
+                            const updatedFields = businessFields.map(f => 
+                              f.id === field.id ? { ...f, dataType: value as any } : f
+                            );
+                            setBusinessFields(updatedFields);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="alphabets">Alphabets</SelectItem>
+                            <SelectItem value="numbers">Numbers</SelectItem>
+                            <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 pt-6">
+                        <Checkbox 
+                          id={`mandatory-${field.id}`}
+                          checked={field.mandatory}
+                          onCheckedChange={(checked) => {
+                            const updatedFields = businessFields.map(f => 
+                              f.id === field.id ? { ...f, mandatory: !!checked } : f
+                            );
+                            setBusinessFields(updatedFields);
+                          }}
+                        />
+                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center space-x-2 pt-6">
-                      <Checkbox 
-                        id={`mandatory-${field.id}`}
-                        checked={field.mandatory}
-                        onCheckedChange={(checked) => {
-                          const updatedFields = businessFields.map(f => 
-                            f.id === field.id ? { ...f, mandatory: !!checked } : f
-                          );
-                          setBusinessFields(updatedFields);
-                        }}
-                      />
-                      <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                    </div>
-                  </div>
-
-                  {field.type === "image" && (
-                    <div className="text-sm text-muted-foreground">
-                      Document: {field.documentName} | Clicks: {field.numberOfClicks}
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-sm text-muted-foreground">
+                        Document: {field.documentName} | Uploads Required: {field.numberOfClicks}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`mandatory-${field.id}`}
+                          checked={field.mandatory}
+                          onCheckedChange={(checked) => {
+                            const updatedFields = businessFields.map(f => 
+                              f.id === field.id ? { ...f, mandatory: !!checked } : f
+                            );
+                            setBusinessFields(updatedFields);
+                          }}
+                        />
+                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
+                      </div>
+                      {renderImagePlaceholders(field)}
                     </div>
                   )}
                 </div>
@@ -680,9 +875,14 @@ const CPVForms = () => {
                 </Dialog>
               </div>
 
-              <Button onClick={handleSubmitForm} className="w-full">
-                Submit
-              </Button>
+              <div className="flex gap-4">
+                <Button variant="outline" onClick={goBack} className="w-full">
+                  Back
+                </Button>
+                <Button onClick={handleSubmitForm} className="w-full">
+                  Submit
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -732,9 +932,13 @@ const CPVForms = () => {
               </div>
               
               <div className="flex gap-4">
+                <Button variant="outline" onClick={goBack} className="w-full">
+                  Back
+                </Button>
                 <Button 
                   onClick={() => setCurrentStep(5)} 
                   disabled={!newSectionName}
+                  className="w-full"
                 >
                   Proceed
                 </Button>
@@ -783,36 +987,19 @@ const CPVForms = () => {
                 </div>
               </div>
               
-              <Button onClick={() => setCurrentStep(6)} className="w-full">
-                Proceed
-              </Button>
+              <div className="flex gap-4">
+                <Button variant="outline" onClick={goBack} className="w-full">
+                  Back
+                </Button>
+                <Button onClick={() => setCurrentStep(6)} className="w-full">
+                  Proceed
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {currentStep === 6 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Form Creation Complete</CardTitle>
-              <CardDescription>
-                Review your CPV form settings before finalizing
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Form Summary</h4>
-                <p><strong>Initiative:</strong> {selectedInitiative}</p>
-                <p><strong>Personal Details Fields:</strong> {personalFields.length}</p>
-                <p><strong>Business Details Fields:</strong> {businessFields.length}</p>
-                <p><strong>Custom Sections:</strong> {customSections.length}</p>
-              </div>
-              
-              <Button onClick={finalizeCPVForm} className="w-full">
-                Finalize CPV Form
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+        {currentStep === 6 && renderPreviewForm()}
 
         {/* Success Dialog */}
         <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
