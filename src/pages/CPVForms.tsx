@@ -52,6 +52,7 @@ const CPVForms = () => {
   const [selectedInitiative, setSelectedInitiative] = useState("");
   const [customSections, setCustomSections] = useState<FormSection[]>([]);
   const [currentSection, setCurrentSection] = useState<"personal" | "business" | "custom" | "agent">("personal");
+  const [currentCustomSectionId, setCurrentCustomSectionId] = useState<string | null>(null);
   
   // Field management
   const [personalFields, setPersonalFields] = useState<CustomField[]>([
@@ -79,6 +80,7 @@ const CPVForms = () => {
   const [showCreateImageDialog, setShowCreateImageDialog] = useState(false);
   const [showAdditionalSectionDialog, setShowAdditionalSectionDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showBackToDashboardDialog, setShowBackToDashboardDialog] = useState(false);
   
   // Form data
   const [newQuestion, setNewQuestion] = useState({ title: "", dataType: "alphabets", mandatory: false });
@@ -91,6 +93,9 @@ const CPVForms = () => {
     switch (currentSection) {
       case "personal": return personalFields;
       case "business": return businessFields;
+      case "custom": 
+        const section = customSections.find(s => s.id === currentCustomSectionId);
+        return section ? section.fields : [];
       default: return [];
     }
   };
@@ -99,17 +104,29 @@ const CPVForms = () => {
     switch (currentSection) {
       case "personal": setPersonalFields(fields); break;
       case "business": setBusinessFields(fields); break;
+      case "custom":
+        setCustomSections(sections => 
+          sections.map(s => 
+            s.id === currentCustomSectionId ? { ...s, fields } : s
+          )
+        );
+        break;
     }
   };
 
   const goBack = () => {
     if (currentStep === 1) {
-      setCurrentView("dashboard");
+      setShowBackToDashboardDialog(true);
     } else if (currentStep === 6) {
       setCurrentStep(5); // Preview goes back to CPV Agent Details
     } else {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const handleBackToDashboard = () => {
+    setShowBackToDashboardDialog(false);
+    resetForm();
   };
 
   const addCustomField = () => {
@@ -405,7 +422,7 @@ const CPVForms = () => {
         <div className="flex items-center gap-4 mb-6">
           <Button variant="ghost" onClick={goBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            Back to Dashboard
           </Button>
           <h1 className="text-2xl font-bold">
             {editingFormId ? "Edit CPV Form" : "Create CPV Form"}
@@ -916,39 +933,282 @@ const CPVForms = () => {
         {currentStep === 4 && (
           <Card>
             <CardHeader>
-              <CardTitle>Create Additional Section</CardTitle>
+              <CardTitle>{newSectionName || "Create Additional Section"}</CardTitle>
               <CardDescription>
-                Add a custom section to your CPV form
+                {newSectionName ? `Configure the ${newSectionName} section of your CPV form` : "Add a custom section to your CPV form"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label>Section Name</Label>
-                <Input
-                  value={newSectionName}
-                  onChange={(e) => setNewSectionName(e.target.value)}
-                  placeholder="Enter section name"
-                />
-              </div>
-              
-              <div className="flex gap-4">
-                <Button variant="outline" onClick={goBack} className="w-full">
-                  Back
-                </Button>
-                <Button 
-                  onClick={() => setCurrentStep(5)} 
-                  disabled={!newSectionName}
-                  className="w-full"
-                >
-                  Proceed
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setCurrentStep(5)}
-                >
-                  Cancel
-                </Button>
-              </div>
+              {!newSectionName ? (
+                <>
+                  <div>
+                    <Label>Section Name</Label>
+                    <Input
+                      value={newSectionName}
+                      onChange={(e) => setNewSectionName(e.target.value)}
+                      placeholder="Enter section name"
+                    />
+                  </div>
+                  
+                  <div className="flex gap-4">
+                    <Button variant="outline" onClick={goBack} className="w-full">
+                      Back
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        if (newSectionName) {
+                          const newSection: FormSection = {
+                            id: Date.now().toString(),
+                            name: newSectionName,
+                            fields: []
+                          };
+                          setCustomSections([...customSections, newSection]);
+                          setCurrentCustomSectionId(newSection.id);
+                          setCurrentSection("custom");
+                        }
+                      }} 
+                      disabled={!newSectionName}
+                      className="w-full"
+                    >
+                      Proceed
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setCurrentStep(5)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {customSections
+                    .filter(section => section.id === currentCustomSectionId)
+                    .map((section) => (
+                      <div key={section.id}>
+                        {section.fields.map((field) => (
+                          <div key={field.id} className="border rounded-lg p-4 space-y-3 mb-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-medium">{field.title}</h4>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleFieldVisibility(field.id)}
+                                >
+                                  {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeField(field.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {field.type === "text" ? (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Data Type</Label>
+                                  <Select 
+                                    value={field.dataType} 
+                                    onValueChange={(value) => {
+                                      const updatedSections = customSections.map(s =>
+                                        s.id === currentCustomSectionId
+                                          ? {
+                                              ...s,
+                                              fields: s.fields.map(f =>
+                                                f.id === field.id ? { ...f, dataType: value as any } : f
+                                              )
+                                            }
+                                          : s
+                                      );
+                                      setCustomSections(updatedSections);
+                                    }}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="alphabets">Alphabets</SelectItem>
+                                      <SelectItem value="numbers">Numbers</SelectItem>
+                                      <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                
+                                <div className="flex items-center space-x-2 pt-6">
+                                  <Checkbox 
+                                    id={`mandatory-${field.id}`}
+                                    checked={field.mandatory}
+                                    onCheckedChange={(checked) => {
+                                      const updatedSections = customSections.map(s =>
+                                        s.id === currentCustomSectionId
+                                          ? {
+                                              ...s,
+                                              fields: s.fields.map(f =>
+                                                f.id === field.id ? { ...f, mandatory: !!checked } : f
+                                              )
+                                            }
+                                          : s
+                                      );
+                                      setCustomSections(updatedSections);
+                                    }}
+                                  />
+                                  <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="text-sm text-muted-foreground">
+                                  Document: {field.documentName} | Uploads Required: {field.numberOfClicks}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox 
+                                    id={`mandatory-${field.id}`}
+                                    checked={field.mandatory}
+                                    onCheckedChange={(checked) => {
+                                      const updatedSections = customSections.map(s =>
+                                        s.id === currentCustomSectionId
+                                          ? {
+                                              ...s,
+                                              fields: s.fields.map(f =>
+                                                f.id === field.id ? { ...f, mandatory: !!checked } : f
+                                              )
+                                            }
+                                          : s
+                                      );
+                                      setCustomSections(updatedSections);
+                                    }}
+                                  />
+                                  <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
+                                </div>
+                                {renderImagePlaceholders(field)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+
+                  <div className="flex gap-4">
+                    <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add More Questions
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Custom Question</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Question Title</Label>
+                            <Input
+                              value={newQuestion.title}
+                              onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
+                              placeholder="Enter question title"
+                            />
+                          </div>
+                          <div>
+                            <Label>Data Type</Label>
+                            <Select 
+                              value={newQuestion.dataType} 
+                              onValueChange={(value) => setNewQuestion({ ...newQuestion, dataType: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="alphabets">Alphabets</SelectItem>
+                                <SelectItem value="numbers">Numbers</SelectItem>
+                                <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="mandatory-new"
+                              checked={newQuestion.mandatory}
+                              onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, mandatory: !!checked })}
+                            />
+                            <Label htmlFor="mandatory-new">Mandatory</Label>
+                          </div>
+                          <Button onClick={addCustomField} disabled={!newQuestion.title}>
+                            Add Question
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={showCreateImageDialog} onOpenChange={setShowCreateImageDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Create Image Upload
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Create Image Upload Field</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Document Name</Label>
+                            <Input
+                              value={newImageField.documentName}
+                              onChange={(e) => setNewImageField({ ...newImageField, documentName: e.target.value })}
+                              placeholder="e.g., Additional Document"
+                            />
+                          </div>
+                          <div>
+                            <Label>Number of Clicks Required</Label>
+                            <Select 
+                              value={newImageField.numberOfClicks.toString()} 
+                              onValueChange={(value) => setNewImageField({ ...newImageField, numberOfClicks: parseInt(value) })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">One</SelectItem>
+                                <SelectItem value="2">Two</SelectItem>
+                                <SelectItem value="3">Three</SelectItem>
+                                <SelectItem value="4">Four</SelectItem>
+                                <SelectItem value="5">Five</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="mandatory-image"
+                              checked={newImageField.mandatory}
+                              onCheckedChange={(checked) => setNewImageField({ ...newImageField, mandatory: !!checked })}
+                            />
+                            <Label htmlFor="mandatory-image">Mandatory</Label>
+                          </div>
+                          <Button onClick={addImageField} disabled={!newImageField.documentName}>
+                            Create Upload Field
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <Button variant="outline" onClick={goBack} className="w-full">
+                      Back
+                    </Button>
+                    <Button onClick={() => setCurrentStep(5)} className="w-full">
+                      Proceed
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
@@ -1000,6 +1260,26 @@ const CPVForms = () => {
         )}
 
         {currentStep === 6 && renderPreviewForm()}
+
+        {/* Back to Dashboard Confirmation Dialog */}
+        <Dialog open={showBackToDashboardDialog} onOpenChange={setShowBackToDashboardDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Navigation</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p>You will have to recreate the form, are you sure about going back?</p>
+              <div className="flex gap-4">
+                <Button onClick={handleBackToDashboard}>
+                  Yes
+                </Button>
+                <Button variant="outline" onClick={() => setShowBackToDashboardDialog(false)}>
+                  No
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Success Dialog */}
         <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
