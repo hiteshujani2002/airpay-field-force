@@ -24,7 +24,7 @@ interface User {
   email: string;
   contactNumber: string;
   addedOn: string;
-  taggedTo?: string;
+  taggedTo?: string | string[];
   createdBy: string;
   modifiedBy: string;
   modifiedOn: string;
@@ -229,7 +229,7 @@ const UserManagement = () => {
                   <TableRow>
                     <TableHead>Sr.No</TableHead>
                     <TableHead>User Name</TableHead>
-                    <TableHead className="w-32">Role</TableHead>
+                    <TableHead className="w-40">Role</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Contact Number</TableHead>
@@ -255,7 +255,7 @@ const UserManagement = () => {
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.contactNumber}</TableCell>
                       <TableCell>{user.addedOn}</TableCell>
-                      <TableCell>{user.taggedTo || "-"}</TableCell>
+                      <TableCell>{Array.isArray(user.taggedTo) ? user.taggedTo.join(", ") : user.taggedTo || "-"}</TableCell>
                       <TableCell>{user.createdBy}</TableCell>
                       <TableCell>{user.modifiedBy}</TableCell>
                       <TableCell>{user.modifiedOn}</TableCell>

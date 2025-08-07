@@ -105,24 +105,15 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>Profile</DialogTitle>
-            <div className="flex items-center gap-2">
-              {!isEditing && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-              )}
+            {!isEditing && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onOpenChange(false)}
+                onClick={() => setIsEditing(true)}
               >
-                <X className="h-4 w-4" />
+                <Edit className="h-4 w-4" />
               </Button>
-            </div>
+            )}
           </div>
         </DialogHeader>
         

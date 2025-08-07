@@ -14,7 +14,7 @@ interface User {
   email: string;
   contactNumber: string;
   addedOn: string;
-  taggedTo?: string;
+  taggedTo?: string | string[];
   createdBy: string;
   modifiedBy: string;
   modifiedOn: string;
@@ -210,7 +210,7 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({
             <Label htmlFor="taggedTo">Tagged To</Label>
             <Input
               id="taggedTo"
-              value={formData.taggedTo || ""}
+              value={Array.isArray(formData.taggedTo) ? formData.taggedTo.join(", ") : formData.taggedTo || ""}
               onChange={(e) => handleInputChange("taggedTo", e.target.value)}
               placeholder="Enter project or assignment"
             />

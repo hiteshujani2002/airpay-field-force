@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserCreateDialogProps {
@@ -15,7 +19,7 @@ interface UserCreateDialogProps {
     company: string;
     email: string;
     contactNumber: string;
-    taggedTo?: string;
+    taggedTo?: string[];
     state?: string;
     pinCode?: string;
   }) => void;
@@ -61,7 +65,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
     company: "",
     email: "",
     contactNumber: "",
-    taggedTo: "",
+    taggedTo: [] as string[],
     state: "",
     pinCode: ""
   });
@@ -141,7 +145,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       company: "",
       email: "",
       contactNumber: "",
-      taggedTo: "",
+      taggedTo: [],
       state: "",
       pinCode: ""
     });
@@ -159,13 +163,35 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
     setFormData(prev => ({ 
       ...prev, 
       role: role as "Client Admin" | "Lead Assigner" | "CPV Agent",
-      taggedTo: "",
+      taggedTo: [],
       state: "",
       pinCode: ""
     }));
     if (errors.role) {
       setErrors(prev => ({ ...prev, role: "" }));
     }
+  };
+
+  const handleTaggedToChange = (company: string, checked: boolean) => {
+    setFormData(prev => {
+      const newTaggedTo = checked
+        ? [...prev.taggedTo, company]
+        : prev.taggedTo.filter(item => item !== company);
+      
+      // Limit to maximum 6 selections
+      if (newTaggedTo.length > 6) {
+        return prev;
+      }
+      
+      return { ...prev, taggedTo: newTaggedTo };
+    });
+  };
+
+  const removeTaggedTo = (company: string) => {
+    setFormData(prev => ({
+      ...prev,
+      taggedTo: prev.taggedTo.filter(item => item !== company)
+    }));
   };
 
   return (
@@ -269,26 +295,59 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
           {/* Tagged To */}
           {(formData.role === "Lead Assigner" || formData.role === "CPV Agent") ? (
             <div className="space-y-2">
-              <Label htmlFor="taggedTo">Tagged To</Label>
-              <Select value={formData.taggedTo} onValueChange={(value) => handleInputChange("taggedTo", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select company" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map((company) => (
-                    <SelectItem key={company} value={company}>
+              <Label htmlFor="taggedTo">Tagged To (Max 6)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    {formData.taggedTo.length > 0 
+                      ? `${formData.taggedTo.length} companies selected`
+                      : "Select companies"
+                    }
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <div className="p-3 space-y-2">
+                    {companies.map((company) => (
+                      <div key={company} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`company-${company}`}
+                          checked={formData.taggedTo.includes(company)}
+                          onCheckedChange={(checked) => handleTaggedToChange(company, checked as boolean)}
+                          disabled={!formData.taggedTo.includes(company) && formData.taggedTo.length >= 6}
+                        />
+                        <Label 
+                          htmlFor={`company-${company}`} 
+                          className="text-sm font-normal cursor-pointer"
+                        >
+                          {company}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {/* Selected companies display */}
+              {formData.taggedTo.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.taggedTo.map((company) => (
+                    <Badge key={company} variant="secondary" className="text-xs">
                       {company}
-                    </SelectItem>
+                      <X
+                        className="h-3 w-3 ml-1 cursor-pointer"
+                        onClick={() => removeTaggedTo(company)}
+                      />
+                    </Badge>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
               <Label htmlFor="taggedTo">Tagged To</Label>
               <Input
                 id="taggedTo"
-                value={formData.taggedTo}
+                value={Array.isArray(formData.taggedTo) ? formData.taggedTo.join(", ") : formData.taggedTo}
                 onChange={(e) => handleInputChange("taggedTo", e.target.value)}
                 placeholder="Enter project or assignment"
               />
