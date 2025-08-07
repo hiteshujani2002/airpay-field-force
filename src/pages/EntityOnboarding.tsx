@@ -161,7 +161,9 @@ export default function EntityOnboarding() {
       const formData = currentForm.getValues()
       
       // Get authenticated user
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      console.log('Authentication check:', { user, userError })
+      
       if (!user) {
         throw new Error('You must be logged in to create an entity')
       }
@@ -194,6 +196,9 @@ export default function EntityOnboarding() {
         const agencyFormData = formData as any
         entityData.parent_company = agencyFormData.mapWith?.[0] || null
       }
+
+      console.log('Entity data to insert:', entityData)
+      console.log('User ID:', user.id)
 
       const { data, error } = await supabase
         .from('entities')
