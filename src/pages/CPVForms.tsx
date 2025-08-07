@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ArrowLeft, Plus, Eye, EyeOff, X, Upload, Trash2, Edit } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ArrowLeft, Plus, Eye, EyeOff, X, Upload, Trash2, Edit, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
+import { AuthGate } from '@/components/AuthGate'
 
 interface CustomField {
   id: string;
@@ -41,12 +44,14 @@ interface CPVForm {
 const CPVForms = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   // Main state
   const [currentView, setCurrentView] = useState<"dashboard" | "create" | "preview" | "edit">("dashboard");
   const [currentStep, setCurrentStep] = useState(1);
   const [forms, setForms] = useState<CPVForm[]>([]);
   const [editingFormId, setEditingFormId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Form creation state
   const [selectedInitiative, setSelectedInitiative] = useState("");
@@ -89,6 +94,75 @@ const CPVForms = () => {
   const [hasProceededToSectionBuilder, setHasProceededToSectionBuilder] = useState(false);
 
   const initiatives = ["Banking Initiative", "Insurance Initiative", "NA"];
+
+  // Load forms from Supabase on component mount
+  useEffect(() => {
+    if (user && currentView === 'dashboard') {
+      loadForms()
+    }
+  }, [user, currentView])
+
+  // Real-time subscription for forms
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cpv_forms',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('CPV Form change received!', payload)
+          if (currentView === 'dashboard') {
+            loadForms() // Reload forms when changes occur
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, currentView])
+
+  const loadForms = async () => {
+    if (!user) return
+    
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('cpv_forms')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      
+      // Transform data to match our interface
+      const transformedForms: CPVForm[] = data.map(form => ({
+        id: form.id,
+        name: form.name,
+        initiative: form.initiative,
+        sections: form.sections as FormSection[],
+        createdAt: new Date(form.created_at).toLocaleDateString()
+      }))
+      
+      setForms(transformedForms)
+    } catch (error: any) {
+      console.error('Error loading forms:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load CPV forms',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
   
   const getCurrentFields = () => {
     switch (currentSection) {
@@ -183,24 +257,68 @@ const CPVForms = () => {
     setShowAdditionalSectionDialog(true);
   };
 
-  const finalizeCPVForm = () => {
-    const newForm: CPVForm = {
-      id: Date.now().toString(),
-      name: `CPV Form ${forms.length + 1}`,
-      initiative: selectedInitiative,
-      sections: [
-        { id: "personal", name: "Personal Details", fields: personalFields },
-        { id: "business", name: "Business Details", fields: businessFields },
-        ...customSections
-      ],
-      createdAt: new Date().toLocaleDateString()
-    };
-    
-    setForms([...forms, newForm]);
-    setShowSuccessDialog(true);
-  };
+  const finalizeCPVForm = async () => {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to create a CPV form',
+        variant: 'destructive',
+      })
+      return
+    }
 
-  const editForm = (formId: string) => {
+    setIsLoading(true)
+    try {
+      const formData = {
+        name: `CPV Form ${Date.now()}`, // Generate unique name
+        initiative: selectedInitiative,
+        sections: [
+          { id: "personal", name: "Personal Details", fields: personalFields },
+          { id: "business", name: "Business Details", fields: businessFields },
+          ...customSections
+        ] as any,
+        user_id: user.id
+      }
+
+      let result
+      if (editingFormId) {
+        // Update existing form
+        const { data, error } = await supabase
+          .from('cpv_forms')
+          .update(formData)
+          .eq('id', editingFormId)
+          .select()
+        result = { data, error }
+      } else {
+        // Create new form
+        const { data, error } = await supabase
+          .from('cpv_forms')
+          .insert([formData])
+          .select()
+        result = { data, error }
+      }
+
+      if (result.error) throw result.error
+
+      toast({
+        title: 'Success!',
+        description: editingFormId ? 'CPV form updated successfully!' : 'CPV form created successfully!',
+      })
+      
+      setShowSuccessDialog(true)
+    } catch (error: any) {
+      console.error('Error saving CPV form:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save CPV form',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const editForm = async (formId: string) => {
     const form = forms.find(f => f.id === formId);
     if (form) {
       setEditingFormId(formId);
@@ -345,8 +463,9 @@ const CPVForms = () => {
             <Button onClick={goBack} variant="outline" className="w-full">
               Back
             </Button>
-            <Button onClick={finalizeCPVForm} className="w-full">
-              Confirm & Create
+            <Button onClick={finalizeCPVForm} className="w-full" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingFormId ? 'Update Form' : 'Confirm & Create'}
             </Button>
           </div>
         </CardContent>
@@ -354,965 +473,354 @@ const CPVForms = () => {
     );
   };
 
-  if (currentView === "dashboard") {
-    return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              <h1 className="text-2xl font-bold">CPV Forms Dashboard</h1>
-            </div>
-            <Button onClick={() => setCurrentView("create")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Form
-            </Button>
-          </div>
-
-          {forms.length === 0 ? (
-            <Card className="text-center py-12">
-              <CardHeader>
-                <CardTitle>No CPV Forms Created Yet</CardTitle>
-                <CardDescription>
-                  Create your first Customer Physical Verification form to get started.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => setCurrentView("create")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Form
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {forms.map((form) => (
-                <Card 
-                  key={form.id} 
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => editForm(form.id)}
-                >
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      {form.name}
-                      <Edit className="h-4 w-4 text-muted-foreground" />
-                    </CardTitle>
-                    <CardDescription>
-                      Initiative: {form.initiative}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Created: {form.createdAt}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Sections: {form.sections.length}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={() => setShowBackToDashboardDialog(true)}>
+  const renderDashboard = () => (
+    <div className="max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold">
-            {editingFormId ? "Edit CPV Form" : "Create CPV Form"}
-          </h1>
+          <h1 className="text-2xl font-bold">CPV Forms Dashboard</h1>
         </div>
+        <Button onClick={() => setCurrentView("create")}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Form
+        </Button>
+      </div>
 
-        <div className="mb-8">
-          <Progress value={(currentStep / 6) * 100} className="w-full" />
-          <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-            <span>Step {currentStep} of 6</span>
-            <span>{Math.round((currentStep / 6) * 100)}% Complete</span>
-          </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading forms...</span>
         </div>
+      ) : forms.length === 0 ? (
+        <Card className="text-center py-12">
+          <CardHeader>
+            <CardTitle>No CPV Forms Created Yet</CardTitle>
+            <CardDescription>
+              Create your first Customer Physical Verification form to get started.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => setCurrentView("create")}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Form
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {forms.map((form) => (
+            <Card 
+              key={form.id} 
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => editForm(form.id)}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  {form.name}
+                  <Edit className="h-4 w-4 text-muted-foreground" />
+                </CardTitle>
+                <CardDescription>
+                  Initiative: {form.initiative}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Created: {form.createdAt}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Sections: {form.sections.length}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
-        {currentStep === 1 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Select Initiative</CardTitle>
-              <CardDescription>
-                Select the initiative for which you want to create a CPV form
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+  return (
+    <AuthGate>
+      <div className="min-h-screen bg-background p-6">
+        {currentView === "dashboard" ? renderDashboard() : (
+          <div className="max-w-4xl mx-auto">
+            {currentStep === 6 ? renderPreviewForm() : (
               <div>
-                <Label htmlFor="initiative">Initiative</Label>
-                <Select value={selectedInitiative} onValueChange={setSelectedInitiative}>
+                <div className="flex items-center gap-4 mb-6">
+                  <Button variant="ghost" onClick={goBack}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    {currentStep === 1 ? "Back to Dashboard" : "Back"}
+                  </Button>
+                  <div className="flex-1">
+                    <h1 className="text-2xl font-bold">{editingFormId ? 'Edit' : 'Create'} CPV Form</h1>
+                    <Progress value={(currentStep / 6) * 100} className="mt-2" />
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Step {currentStep} of 6
+                    </p>
+                  </div>
+                </div>
+
+                {currentStep === 1 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Select Initiative</CardTitle>
+                      <CardDescription>Choose the initiative for this CPV form</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <RadioGroup 
+                        value={selectedInitiative} 
+                        onValueChange={setSelectedInitiative}
+                        className="space-y-3"
+                      >
+                        {initiatives.map((initiative) => (
+                          <div key={initiative} className="flex items-center space-x-2">
+                            <RadioGroupItem value={initiative} id={initiative} />
+                            <Label htmlFor={initiative}>{initiative}</Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                      <div className="flex justify-end mt-6">
+                        <Button 
+                          onClick={() => setCurrentStep(2)} 
+                          disabled={!selectedInitiative}
+                        >
+                          Continue
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {(currentStep >= 2 && currentStep <= 5) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        {currentStep === 2 && "Personal Details"}
+                        {currentStep === 3 && "Business Details"}
+                        {currentStep === 4 && "Additional Sections"}
+                        {currentStep === 5 && "CPV Agent Details"}
+                      </CardTitle>
+                      <CardDescription>
+                        Configure the form fields for this section
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          onClick={() => setShowAddQuestionDialog(true)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Question
+                        </Button>
+                        <Button
+                          onClick={() => setShowCreateImageDialog(true)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Add Image Upload
+                        </Button>
+                      </div>
+
+                      {getCurrentFields().map((field) => (
+                        <div key={field.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium">{field.title}</span>
+                              {field.mandatory && <span className="text-red-500">*</span>}
+                              {field.type === "image" && (
+                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                  Image ({field.numberOfClicks} clicks)
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Type: {field.dataType} | {field.visible ? 'Visible' : 'Hidden'}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleFieldVisibility(field.id)}
+                            >
+                              {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeField(field.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="flex justify-between mt-6">
+                        <Button variant="outline" onClick={goBack}>
+                          Back
+                        </Button>
+                        <Button onClick={() => {
+                          if (currentStep === 5) {
+                            setCurrentStep(6); // Go to preview
+                          } else {
+                            setCurrentStep(currentStep + 1);
+                          }
+                        }}>
+                          {currentStep === 5 ? 'Preview Form' : 'Continue'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dialogs */}
+        <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Question</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="question-title">Question Title</Label>
+                <Input
+                  id="question-title"
+                  value={newQuestion.title}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
+                  placeholder="Enter question title"
+                />
+              </div>
+              <div>
+                <Label htmlFor="data-type">Data Type</Label>
+                <Select 
+                  value={newQuestion.dataType} 
+                  onValueChange={(value) => setNewQuestion({ ...newQuestion, dataType: value })}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select an initiative" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {initiatives.map((initiative) => (
-                      <SelectItem key={initiative} value={initiative}>
-                        {initiative}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="alphabets">Alphabets</SelectItem>
+                    <SelectItem value="numbers">Numbers</SelectItem>
+                    <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <Button 
-                onClick={() => setCurrentStep(2)} 
-                disabled={!selectedInitiative}
-                className="w-full"
-              >
-                Next
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {currentStep === 2 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Personal Details Verification</CardTitle>
-              <CardDescription>
-                Configure the personal details section of your CPV form
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {personalFields.map((field) => (
-                <div key={field.id} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{field.title}</h4>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFieldVisibility(field.id)}
-                      >
-                        {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                      </Button>
-                      {!["1", "2", "3", "4"].includes(field.id) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeField(field.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {field.type === "text" ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Data Type</Label>
-                        <Select 
-                          value={field.dataType} 
-                          onValueChange={(value) => {
-                            const updatedFields = personalFields.map(f => 
-                              f.id === field.id ? { ...f, dataType: value as any } : f
-                            );
-                            setPersonalFields(updatedFields);
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="alphabets">Alphabets</SelectItem>
-                            <SelectItem value="numbers">Numbers</SelectItem>
-                            <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 pt-6">
-                        <Checkbox 
-                          id={`mandatory-${field.id}`}
-                          checked={field.mandatory}
-                          onCheckedChange={(checked) => {
-                            const updatedFields = personalFields.map(f => 
-                              f.id === field.id ? { ...f, mandatory: !!checked } : f
-                            );
-                            setPersonalFields(updatedFields);
-                          }}
-                        />
-                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="text-sm text-muted-foreground">
-                        Document: {field.documentName} | Uploads Required: {field.numberOfClicks}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`mandatory-${field.id}`}
-                          checked={field.mandatory}
-                          onCheckedChange={(checked) => {
-                            const updatedFields = personalFields.map(f => 
-                              f.id === field.id ? { ...f, mandatory: !!checked } : f
-                            );
-                            setPersonalFields(updatedFields);
-                          }}
-                        />
-                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                      </div>
-                      {renderImagePlaceholders(field)}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="flex gap-4">
-                <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add More Questions
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Custom Question</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Question Title</Label>
-                        <Input
-                          value={newQuestion.title}
-                          onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
-                          placeholder="Enter question title"
-                        />
-                      </div>
-                      <div>
-                        <Label>Data Type</Label>
-                        <Select 
-                          value={newQuestion.dataType} 
-                          onValueChange={(value) => setNewQuestion({ ...newQuestion, dataType: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="alphabets">Alphabets</SelectItem>
-                            <SelectItem value="numbers">Numbers</SelectItem>
-                            <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mandatory-new"
-                          checked={newQuestion.mandatory}
-                          onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, mandatory: !!checked })}
-                        />
-                        <Label htmlFor="mandatory-new">Mandatory</Label>
-                      </div>
-                      <Button onClick={addCustomField} disabled={!newQuestion.title}>
-                        Add Question
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog open={showCreateImageDialog} onOpenChange={setShowCreateImageDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Upload className="h-4 w-4 mr-2" />
-                      Create Image Upload
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create Image Upload Field</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Document Name</Label>
-                        <Input
-                          value={newImageField.documentName}
-                          onChange={(e) => setNewImageField({ ...newImageField, documentName: e.target.value })}
-                          placeholder="e.g., Aadhar Card"
-                        />
-                      </div>
-                      <div>
-                        <Label>Number of Clicks Required</Label>
-                        <Select 
-                          value={newImageField.numberOfClicks.toString()} 
-                          onValueChange={(value) => setNewImageField({ ...newImageField, numberOfClicks: parseInt(value) })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">One</SelectItem>
-                            <SelectItem value="2">Two</SelectItem>
-                            <SelectItem value="3">Three</SelectItem>
-                            <SelectItem value="4">Four</SelectItem>
-                            <SelectItem value="5">Five</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mandatory-image"
-                          checked={newImageField.mandatory}
-                          onCheckedChange={(checked) => setNewImageField({ ...newImageField, mandatory: !!checked })}
-                        />
-                        <Label htmlFor="mandatory-image">Mandatory</Label>
-                      </div>
-                      <Button onClick={addImageField} disabled={!newImageField.documentName}>
-                        Create Upload Field
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="mandatory"
+                  checked={newQuestion.mandatory}
+                  onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, mandatory: !!checked })}
+                />
+                <Label htmlFor="mandatory">Mandatory field</Label>
               </div>
-
-              <div className="flex gap-4">
-                <Button variant="outline" onClick={goBack} className="w-full">
-                  Back
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowAddQuestionDialog(false)}>
+                  Cancel
                 </Button>
-                <Button onClick={() => setCurrentStep(3)} className="w-full">
-                  Next
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {currentStep === 3 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Business Details Verification</CardTitle>
-              <CardDescription>
-                Configure the business details section of your CPV form
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {businessFields.map((field) => (
-                <div key={field.id} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{field.title}</h4>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setCurrentSection("business");
-                          toggleFieldVisibility(field.id);
-                        }}
-                      >
-                        {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                      </Button>
-                      {!["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"].includes(field.id) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setCurrentSection("business");
-                            removeField(field.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {field.type === "text" ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Data Type</Label>
-                        <Select 
-                          value={field.dataType} 
-                          onValueChange={(value) => {
-                            const updatedFields = businessFields.map(f => 
-                              f.id === field.id ? { ...f, dataType: value as any } : f
-                            );
-                            setBusinessFields(updatedFields);
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="alphabets">Alphabets</SelectItem>
-                            <SelectItem value="numbers">Numbers</SelectItem>
-                            <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 pt-6">
-                        <Checkbox 
-                          id={`mandatory-${field.id}`}
-                          checked={field.mandatory}
-                          onCheckedChange={(checked) => {
-                            const updatedFields = businessFields.map(f => 
-                              f.id === field.id ? { ...f, mandatory: !!checked } : f
-                            );
-                            setBusinessFields(updatedFields);
-                          }}
-                        />
-                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="text-sm text-muted-foreground">
-                        Document: {field.documentName} | Uploads Required: {field.numberOfClicks}
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`mandatory-${field.id}`}
-                          checked={field.mandatory}
-                          onCheckedChange={(checked) => {
-                            const updatedFields = businessFields.map(f => 
-                              f.id === field.id ? { ...f, mandatory: !!checked } : f
-                            );
-                            setBusinessFields(updatedFields);
-                          }}
-                        />
-                        <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                      </div>
-                      {renderImagePlaceholders(field)}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="flex gap-4">
-                <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" onClick={() => setCurrentSection("business")}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add More Questions
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Custom Question</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Question Title</Label>
-                        <Input
-                          value={newQuestion.title}
-                          onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
-                          placeholder="Enter question title"
-                        />
-                      </div>
-                      <div>
-                        <Label>Data Type</Label>
-                        <Select 
-                          value={newQuestion.dataType} 
-                          onValueChange={(value) => setNewQuestion({ ...newQuestion, dataType: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="alphabets">Alphabets</SelectItem>
-                            <SelectItem value="numbers">Numbers</SelectItem>
-                            <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mandatory-new"
-                          checked={newQuestion.mandatory}
-                          onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, mandatory: !!checked })}
-                        />
-                        <Label htmlFor="mandatory-new">Mandatory</Label>
-                      </div>
-                      <Button onClick={addCustomField} disabled={!newQuestion.title}>
-                        Add Question
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog open={showCreateImageDialog} onOpenChange={setShowCreateImageDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" onClick={() => setCurrentSection("business")}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Create Image Upload
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create Image Upload Field</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Document Name</Label>
-                        <Input
-                          value={newImageField.documentName}
-                          onChange={(e) => setNewImageField({ ...newImageField, documentName: e.target.value })}
-                          placeholder="e.g., Business License"
-                        />
-                      </div>
-                      <div>
-                        <Label>Number of Clicks Required</Label>
-                        <Select 
-                          value={newImageField.numberOfClicks.toString()} 
-                          onValueChange={(value) => setNewImageField({ ...newImageField, numberOfClicks: parseInt(value) })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">One</SelectItem>
-                            <SelectItem value="2">Two</SelectItem>
-                            <SelectItem value="3">Three</SelectItem>
-                            <SelectItem value="4">Four</SelectItem>
-                            <SelectItem value="5">Five</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="mandatory-image"
-                          checked={newImageField.mandatory}
-                          onCheckedChange={(checked) => setNewImageField({ ...newImageField, mandatory: !!checked })}
-                        />
-                        <Label htmlFor="mandatory-image">Mandatory</Label>
-                      </div>
-                      <Button onClick={addImageField} disabled={!newImageField.documentName}>
-                        Create Upload Field
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-
-              <div className="flex gap-4">
-                <Button variant="outline" onClick={goBack} className="w-full">
-                  Back
-                </Button>
-                <Button onClick={handleSubmitForm} className="w-full">
-                  Submit
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Additional Section Dialog */}
-        <Dialog open={showAdditionalSectionDialog} onOpenChange={setShowAdditionalSectionDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Additional Section</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p>Do you wish to create an additional section for the CPV form?</p>
-              <div className="flex gap-4">
-                <Button onClick={() => {
-                  setShowAdditionalSectionDialog(false);
-                  setCurrentStep(4);
-                  setHasProceededToSectionBuilder(false);
-                  setNewSectionName("");
-                }}>
-                  Yes
-                </Button>
-                <Button variant="outline" onClick={() => {
-                  setShowAdditionalSectionDialog(false);
-                  setCurrentStep(5);
-                }}>
-                  No
+                <Button onClick={addCustomField} disabled={!newQuestion.title}>
+                  Add Question
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
 
-        {currentStep === 4 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{newSectionName || "Create Additional Section"}</CardTitle>
-              <CardDescription>
-                {newSectionName ? `Configure the ${newSectionName} section of your CPV form` : "Add a custom section to your CPV form"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!hasProceededToSectionBuilder ? (
-                <>
-                  <div>
-                    <Label>Section Name</Label>
-                    <Input
-                      value={newSectionName}
-                      onChange={(e) => setNewSectionName(e.target.value)}
-                      placeholder="Enter section name"
-                      onKeyDown={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                  
-                  <div className="flex gap-4">
-                    <Button variant="outline" onClick={goBack} className="w-full">
-                      Back
-                    </Button>
-                     <Button 
-                       onClick={() => {
-                         if (newSectionName) {
-                           const newSection: FormSection = {
-                             id: Date.now().toString(),
-                             name: newSectionName,
-                             fields: []
-                           };
-                           setCustomSections([...customSections, newSection]);
-                           setCurrentCustomSectionId(newSection.id);
-                           setCurrentSection("custom");
-                           setHasProceededToSectionBuilder(true);
-                         }
-                       }} 
-                       disabled={!newSectionName}
-                       className="w-full"
-                     >
-                      Proceed
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentStep(5)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {customSections
-                    .filter(section => section.id === currentCustomSectionId)
-                    .map((section) => (
-                      <div key={section.id}>
-                        {section.fields.map((field) => (
-                          <div key={field.id} className="border rounded-lg p-4 space-y-3 mb-4">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-medium">{field.title}</h4>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleFieldVisibility(field.id)}
-                                >
-                                  {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeField(field.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {field.type === "text" ? (
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <Label>Data Type</Label>
-                                  <Select 
-                                    value={field.dataType} 
-                                    onValueChange={(value) => {
-                                      const updatedSections = customSections.map(s =>
-                                        s.id === currentCustomSectionId
-                                          ? {
-                                              ...s,
-                                              fields: s.fields.map(f =>
-                                                f.id === field.id ? { ...f, dataType: value as any } : f
-                                              )
-                                            }
-                                          : s
-                                      );
-                                      setCustomSections(updatedSections);
-                                    }}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="alphabets">Alphabets</SelectItem>
-                                      <SelectItem value="numbers">Numbers</SelectItem>
-                                      <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="flex items-center space-x-2 pt-6">
-                                  <Checkbox 
-                                    id={`mandatory-${field.id}`}
-                                    checked={field.mandatory}
-                                    onCheckedChange={(checked) => {
-                                      const updatedSections = customSections.map(s =>
-                                        s.id === currentCustomSectionId
-                                          ? {
-                                              ...s,
-                                              fields: s.fields.map(f =>
-                                                f.id === field.id ? { ...f, mandatory: !!checked } : f
-                                              )
-                                            }
-                                          : s
-                                      );
-                                      setCustomSections(updatedSections);
-                                    }}
-                                  />
-                                  <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                <div className="text-sm text-muted-foreground">
-                                  Document: {field.documentName} | Uploads Required: {field.numberOfClicks}
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox 
-                                    id={`mandatory-${field.id}`}
-                                    checked={field.mandatory}
-                                    onCheckedChange={(checked) => {
-                                      const updatedSections = customSections.map(s =>
-                                        s.id === currentCustomSectionId
-                                          ? {
-                                              ...s,
-                                              fields: s.fields.map(f =>
-                                                f.id === field.id ? { ...f, mandatory: !!checked } : f
-                                              )
-                                            }
-                                          : s
-                                      );
-                                      setCustomSections(updatedSections);
-                                    }}
-                                  />
-                                  <Label htmlFor={`mandatory-${field.id}`}>Mandatory</Label>
-                                </div>
-                                {renderImagePlaceholders(field)}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-
-                  <div className="flex gap-4">
-                    <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add More Questions
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add Custom Question</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Question Title</Label>
-                            <Input
-                              value={newQuestion.title}
-                              onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
-                              placeholder="Enter question title"
-                            />
-                          </div>
-                          <div>
-                            <Label>Data Type</Label>
-                            <Select 
-                              value={newQuestion.dataType} 
-                              onValueChange={(value) => setNewQuestion({ ...newQuestion, dataType: value })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="alphabets">Alphabets</SelectItem>
-                                <SelectItem value="numbers">Numbers</SelectItem>
-                                <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox 
-                              id="mandatory-new"
-                              checked={newQuestion.mandatory}
-                              onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, mandatory: !!checked })}
-                            />
-                            <Label htmlFor="mandatory-new">Mandatory</Label>
-                          </div>
-                          <Button onClick={addCustomField} disabled={!newQuestion.title}>
-                            Add Question
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-
-                    <Dialog open={showCreateImageDialog} onOpenChange={setShowCreateImageDialog}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline">
-                          <Upload className="h-4 w-4 mr-2" />
-                          Create Image Upload
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Create Image Upload Field</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Document Name</Label>
-                            <Input
-                              value={newImageField.documentName}
-                              onChange={(e) => setNewImageField({ ...newImageField, documentName: e.target.value })}
-                              placeholder="e.g., Additional Document"
-                            />
-                          </div>
-                          <div>
-                            <Label>Number of Clicks Required</Label>
-                            <Select 
-                              value={newImageField.numberOfClicks.toString()} 
-                              onValueChange={(value) => setNewImageField({ ...newImageField, numberOfClicks: parseInt(value) })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="1">One</SelectItem>
-                                <SelectItem value="2">Two</SelectItem>
-                                <SelectItem value="3">Three</SelectItem>
-                                <SelectItem value="4">Four</SelectItem>
-                                <SelectItem value="5">Five</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox 
-                              id="mandatory-image"
-                              checked={newImageField.mandatory}
-                              onCheckedChange={(checked) => setNewImageField({ ...newImageField, mandatory: !!checked })}
-                            />
-                            <Label htmlFor="mandatory-image">Mandatory</Label>
-                          </div>
-                          <Button onClick={addImageField} disabled={!newImageField.documentName}>
-                            Create Upload Field
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <Button variant="outline" onClick={goBack} className="w-full">
-                      Back
-                    </Button>
-                    <Button onClick={() => setCurrentStep(5)} className="w-full">
-                      Proceed
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {currentStep === 5 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>CPV Agent Details</CardTitle>
-              <CardDescription>
-                Final section - mandatory for CPV agents to fill
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Visit Date</Label>
-                  <Input type="date" disabled />
-                </div>
-                <div>
-                  <Label>Visit Time</Label>
-                  <Input type="time" disabled />
-                </div>
-                <div>
-                  <Label>Employee Name</Label>
-                  <Input placeholder="Agent will fill this" disabled />
-                </div>
-                <div>
-                  <Label>Employee Code</Label>
-                  <Input placeholder="Agent will fill this" disabled />
-                </div>
+        <Dialog open={showCreateImageDialog} onOpenChange={setShowCreateImageDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Image Upload Field</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="document-name">Document Name</Label>
+                <Input
+                  id="document-name"
+                  value={newImageField.documentName}
+                  onChange={(e) => setNewImageField({ ...newImageField, documentName: e.target.value })}
+                  placeholder="Enter document name"
+                />
               </div>
               <div>
-                <Label>Employee Signature</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <p className="text-muted-foreground">Signature area for CPV agent</p>
-                </div>
+                <Label htmlFor="number-of-clicks">Number of Images</Label>
+                <Input
+                  id="number-of-clicks"
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={newImageField.numberOfClicks}
+                  onChange={(e) => setNewImageField({ ...newImageField, numberOfClicks: parseInt(e.target.value) || 1 })}
+                />
               </div>
-              
-              <div className="flex gap-4">
-                <Button variant="outline" onClick={goBack} className="w-full">
-                  Back
-                </Button>
-                <Button onClick={() => setCurrentStep(6)} className="w-full">
-                  Proceed
-                </Button>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="image-mandatory"
+                  checked={newImageField.mandatory}
+                  onCheckedChange={(checked) => setNewImageField({ ...newImageField, mandatory: !!checked })}
+                />
+                <Label htmlFor="image-mandatory">Mandatory field</Label>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {currentStep === 6 && renderPreviewForm()}
-
-        {/* Back to Dashboard Confirmation Dialog */}
-        <Dialog open={showBackToDashboardDialog} onOpenChange={setShowBackToDashboardDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirm Navigation</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p>You will have to recreate the form, are you sure about going back?</p>
-              <div className="flex gap-4">
-                <Button onClick={handleBackToDashboard}>
-                  Yes
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowCreateImageDialog(false)}>
+                  Cancel
                 </Button>
-                <Button variant="outline" onClick={() => setShowBackToDashboardDialog(false)}>
-                  No
+                <Button onClick={addImageField} disabled={!newImageField.documentName}>
+                  Add Image Field
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
 
-        {/* Success Dialog */}
         <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Success!</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <p>CPV Form {forms.length + 1} is successfully created</p>
+            <div className="text-center py-4">
+              <p className="mb-4">
+                {editingFormId ? 'CPV form updated successfully!' : 'CPV form created successfully!'}
+              </p>
               <Button onClick={() => {
                 setShowSuccessDialog(false);
+                setCurrentView("dashboard");
                 resetForm();
-                toast({
-                  title: "Success",
-                  description: "CPV Form created successfully",
-                });
               }}>
-                Continue
+                Back to Dashboard
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showBackToDashboardDialog} onOpenChange={setShowBackToDashboardDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Navigation</DialogTitle>
+            </DialogHeader>
+            <div>
+              <p className="mb-4">Are you sure you want to go back to the dashboard? All unsaved changes will be lost.</p>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowBackToDashboardDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleBackToDashboard} variant="destructive">
+                  Yes, Go Back
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-    </div>
+    </AuthGate>
   );
 };
 

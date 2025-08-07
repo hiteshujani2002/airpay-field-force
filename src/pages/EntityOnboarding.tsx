@@ -14,8 +14,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft, Upload, Building2, Users, X } from 'lucide-react'
+import { ArrowLeft, Upload, Building2, Users, X, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/integrations/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
+import { AuthGate } from '@/components/AuthGate'
 
 type EntityType = 'company' | 'agency' | null
 type OnboardingStep = 'selection' | 'details' | 'documents' | 'complete'
@@ -94,8 +97,10 @@ export default function EntityOnboarding() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('selection')
   const [selectedState, setSelectedState] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const companyForm = useForm({
     resolver: zodResolver(companyDetailsSchema),
@@ -147,31 +152,94 @@ export default function EntityOnboarding() {
     setCurrentStep('documents')
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    setUploadedFiles(prev => [...prev, ...files])
-  }
-
   const handleFileDelete = (indexToDelete: number) => {
     setUploadedFiles(prev => prev.filter((_, index) => index !== indexToDelete))
   }
 
-  const handleFinalSubmit = () => {
-    const successMessage = entityType === 'company' 
-      ? 'Client admin created; company successfully onboarded'
-      : 'Lead Assigner user created, agency onboarded successfully'
+  const handleFinalSubmit = async () => {
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to submit the form',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsSubmitting(true)
     
-    toast({
-      title: 'Success!',
-      description: successMessage,
-    })
-    
-    // Reset form
-    setEntityType(null)
-    setCurrentStep('selection')
-    setUploadedFiles([])
-    companyForm.reset()
-    agencyForm.reset()
+    try {
+      const currentForm = entityType === 'company' ? companyForm : agencyForm
+      const formData = currentForm.getValues()
+      
+      // Map form data to database schema
+      const entityData: any = {
+        entity_type: entityType,
+        user_id: user.id,
+        // Common fields
+        address_line1: formData.addressLine1,
+        address_line2: formData.addressLine2 || null,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        pincode: formData.pincode,
+        office_ownership: formData.officeOwnership === 'rented' ? 'rented' : 
+                          formData.officeOwnership === 'owned' ? 'owned' : 'shared',
+        documents: uploadedFiles.map(file => ({ name: file.name, size: file.size })),
+      }
+
+      // Entity-specific fields
+      if (entityType === 'company') {
+        entityData.company_name = formData.companyName
+        entityData.company_type = formData.companyType === 'pvt' ? 'private_limited' :
+                                  formData.companyType === 'llp' ? 'llp' :
+                                  formData.companyType === 'proprietor' ? 'sole_proprietorship' :
+                                  'private_limited'
+      } else {
+        entityData.agency_name = formData.companyName
+        const agencyFormData = formData as any
+        entityData.parent_company = agencyFormData.mapWith?.[0] || null
+      }
+
+      const { data, error } = await supabase
+        .from('entities')
+        .insert([entityData])
+        .select()
+
+      if (error) throw error
+
+      const successMessage = entityType === 'company' 
+        ? 'Client admin created; company successfully onboarded'
+        : 'Lead Assigner user created, agency onboarded successfully'
+      
+      toast({
+        title: 'Success!',
+        description: successMessage,
+      })
+      
+      // Reset form
+      setEntityType(null)
+      setCurrentStep('selection')
+      setUploadedFiles([])
+      companyForm.reset()
+      agencyForm.reset()
+      setSelectedState('')
+      
+    } catch (error: any) {
+      console.error('Error submitting entity:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to submit entity onboarding',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    setUploadedFiles(prev => [...prev, ...files])
   }
 
   const renderEntitySelection = () => (
@@ -906,7 +974,8 @@ export default function EntityOnboarding() {
           )}
 
           <div className="flex justify-end">
-            <Button onClick={handleFinalSubmit} size="lg">
+            <Button onClick={handleFinalSubmit} size="lg" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit
             </Button>
           </div>
@@ -916,10 +985,12 @@ export default function EntityOnboarding() {
   )
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      {currentStep === 'selection' && renderEntitySelection()}
-      {currentStep === 'details' && renderDetailsForm()}
-      {currentStep === 'documents' && renderDocumentsForm()}
-    </div>
+    <AuthGate>
+      <div className="container mx-auto py-6 px-4">
+        {currentStep === 'selection' && renderEntitySelection()}
+        {currentStep === 'details' && renderDetailsForm()}
+        {currentStep === 'documents' && renderDocumentsForm()}
+      </div>
+    </AuthGate>
   )
 }
