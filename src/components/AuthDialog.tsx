@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/integrations/supabase/client'
 
 interface AuthDialogProps {
   open: boolean
@@ -17,8 +18,10 @@ interface AuthDialogProps {
 export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthDialogProps) => {
   const { signIn, signUp } = useAuth()
   const [isSignUp, setIsSignUp] = useState(defaultMode === 'signup')
+  const [isForgotPassword, setIsForgotPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -28,7 +31,19 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
     setIsSubmitting(true)
 
     try {
-      if (isSignUp) {
+      if (isForgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/`,
+        })
+        if (error) throw error
+        
+        toast({
+          title: 'Password reset email sent!',
+          description: 'Please check your email for password reset instructions.',
+        })
+        setIsForgotPassword(false)
+        setEmail('')
+      } else if (isSignUp) {
         await signUp(email, password)
         toast({
           title: 'Success!',
@@ -40,15 +55,17 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
           title: 'Welcome back!',
           description: 'Successfully signed in.',
         })
+        
+        // Close dialog and redirect to dashboard
+        onOpenChange(false)
+        navigate('/dashboard')
       }
       
-      // Close dialog and redirect to dashboard
-      onOpenChange(false)
-      navigate('/dashboard')
-      
       // Reset form
-      setEmail('')
-      setPassword('')
+      if (!isForgotPassword) {
+        setEmail('')
+        setPassword('')
+      }
       
     } catch (error: any) {
       toast({
@@ -61,12 +78,23 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
     }
   }
 
+  const resetForm = () => {
+    setEmail('')
+    setPassword('')
+    setNewPassword('')
+    setIsForgotPassword(false)
+    setIsSignUp(false)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(open) => {
+      onOpenChange(open)
+      if (!open) resetForm()
+    }}>
       <DialogContent className="w-full max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center">
-            {isSignUp ? 'Create Account' : 'Sign In'}
+            {isForgotPassword ? 'Reset Password' : isSignUp ? 'Create Account' : 'Sign In'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
@@ -81,33 +109,58 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
+            {!isForgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                {!isSignUp && (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(true)}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSignUp ? 'Create Account' : 'Sign In'}
+              {isForgotPassword ? 'Send Reset Email' : isSignUp ? 'Create Account' : 'Sign In'}
             </Button>
           </form>
-          <div className="text-center">
-            <Button
-              variant="ghost"
-              onClick={() => setIsSignUp(!isSignUp)}
-              type="button"
-            >
-              {isSignUp
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Sign up"}
-            </Button>
-          </div>
+          {isForgotPassword ? (
+            <div className="text-center">
+              <Button
+                variant="ghost"
+                onClick={() => setIsForgotPassword(false)}
+                type="button"
+              >
+                Back to Sign In
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center">
+              <Button
+                variant="ghost"
+                onClick={() => setIsSignUp(!isSignUp)}
+                type="button"
+              >
+                {isSignUp
+                  ? 'Already have an account? Sign in'
+                  : "Don't have an account? Sign up"}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
