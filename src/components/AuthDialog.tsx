@@ -34,16 +34,36 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
 
     try {
       if (isForgotPassword) {
-        // For security reasons, we'll use Supabase's password reset but with immediate redirect
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+        // First, try to sign in with the new password to verify user exists
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: newPassword,
         })
-        if (error) throw error
         
-        toast({
-          title: 'Password reset initiated!',
-          description: 'Please check your email and follow the link to set your new password.',
-        })
+        if (signInError) {
+          // If sign in fails, user might exist but password is different
+          // Use password reset for security
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/`,
+          })
+          if (error) throw error
+          
+          toast({
+            title: 'Password reset email sent!',
+            description: 'Please check your email to set your new password.',
+          })
+        } else {
+          // Sign in successful with new password
+          toast({
+            title: 'Password updated and signed in!',
+            description: 'Welcome back to your account.',
+          })
+          
+          // Close dialog and redirect to dashboard
+          onOpenChange(false)
+          navigate('/dashboard')
+        }
+        
         setIsForgotPassword(false)
         setEmail('')
         setNewPassword('')
