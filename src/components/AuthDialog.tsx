@@ -34,22 +34,33 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
 
     try {
       if (isForgotPassword) {
-        console.log('Attempting password reset for:', email)
+        console.log('Attempting direct password reset for:', email)
         
-        // Use Supabase's password reset flow
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/`,
-        })
+        // Call our edge function to update password directly
+        const response = await fetch('https://hwycllbxmjdlcmjbkbbo.supabase.co/functions/v1/reset-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3eWNsbGJ4bWpkbGNtamJrYmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyODY2NDgsImV4cCI6MjA2OTg2MjY0OH0.amZjHRfaHVAaXH-4_SG-AHX2CZ0wAelRHDS7Q9mjzBw',
+          },
+          body: JSON.stringify({
+            email,
+            newPassword,
+          }),
+        });
+
+        const result = await response.json();
         
-        if (error) {
-          console.error('Password reset error:', error)
-          throw error
+        if (!response.ok) {
+          console.error('Password reset error:', result.error);
+          throw new Error(result.error || 'Failed to reset password');
         }
+
+        console.log('Password updated successfully');
         
-        console.log('Password reset email sent successfully')
         toast({
-          title: 'Password reset email sent!',
-          description: 'Please check your email and follow the link to set your new password. After setting your new password via email, you can sign in here.',
+          title: 'Password updated successfully!',
+          description: 'You can now sign in with your new password.',
         })
         
         // Switch back to sign in mode and pre-fill email
