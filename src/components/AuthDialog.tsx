@@ -32,17 +32,19 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
 
     try {
       if (isForgotPassword) {
+        // For security reasons, we'll use Supabase's password reset but with immediate redirect
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/reset-password`,
         })
         if (error) throw error
         
         toast({
-          title: 'Password reset email sent!',
-          description: 'Please check your email for password reset instructions.',
+          title: 'Password reset initiated!',
+          description: 'Please check your email and follow the link to set your new password.',
         })
         setIsForgotPassword(false)
         setEmail('')
+        setNewPassword('')
       } else if (isSignUp) {
         await signUp(email, password)
         toast({
@@ -109,6 +111,19 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
                 required
               />
             </div>
+            {isForgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+            )}
             {!isForgotPassword && (
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -135,7 +150,7 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
             )}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isForgotPassword ? 'Send Reset Email' : isSignUp ? 'Create Account' : 'Sign In'}
+              {isForgotPassword ? 'Setup New Password' : isSignUp ? 'Create Account' : 'Sign In'}
             </Button>
           </form>
           {isForgotPassword ? (
