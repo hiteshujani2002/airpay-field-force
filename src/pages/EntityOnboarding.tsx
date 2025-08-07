@@ -160,10 +160,16 @@ export default function EntityOnboarding() {
       const currentForm = entityType === 'company' ? companyForm : agencyForm
       const formData = currentForm.getValues()
       
+      // Get authenticated user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('You must be logged in to create an entity')
+      }
+      
       // Map form data to database schema
       const entityData: any = {
         entity_type: entityType,
-        user_id: null, // Allow anonymous access
+        user_id: user.id, // Set to authenticated user's ID
         // Common fields
         address_line1: formData.addressLine1,
         address_line2: formData.addressLine2 || null,
