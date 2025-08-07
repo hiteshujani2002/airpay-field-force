@@ -229,7 +229,7 @@ const UserManagement = () => {
                   <TableRow>
                     <TableHead>Sr.No</TableHead>
                     <TableHead>User Name</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead className="w-32">Role</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Contact Number</TableHead>

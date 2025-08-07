@@ -16,7 +16,6 @@ interface UserCreateDialogProps {
     email: string;
     contactNumber: string;
     taggedTo?: string;
-    mapWith?: string;
     state?: string;
     pinCode?: string;
   }) => void;
@@ -63,7 +62,6 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
     email: "",
     contactNumber: "",
     taggedTo: "",
-    mapWith: "",
     state: "",
     pinCode: ""
   });
@@ -97,9 +95,6 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       newErrors.contactNumber = "Contact number must be 10 digits";
     }
 
-    if (formData.role === "Lead Assigner" && !formData.mapWith) {
-      newErrors.mapWith = "Map With is required for Lead Assigner role";
-    }
 
     if (formData.role === "CPV Agent") {
       if (!formData.state) {
@@ -135,7 +130,6 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       email: formData.email,
       contactNumber: formData.contactNumber,
       taggedTo: formData.taggedTo || undefined,
-      mapWith: formData.mapWith || undefined,
       state: formData.state || undefined,
       pinCode: formData.pinCode || undefined,
     });
@@ -148,7 +142,6 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       email: "",
       contactNumber: "",
       taggedTo: "",
-      mapWith: "",
       state: "",
       pinCode: ""
     });
@@ -166,7 +159,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
     setFormData(prev => ({ 
       ...prev, 
       role: role as "Client Admin" | "Lead Assigner" | "CPV Agent",
-      mapWith: "",
+      taggedTo: "",
       state: "",
       pinCode: ""
     }));
@@ -218,7 +211,9 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
 
           {/* Company */}
           <div className="space-y-2">
-            <Label htmlFor="company">Company/Agency *</Label>
+            <Label htmlFor="company">
+              {formData.role === "Lead Assigner" || formData.role === "CPV Agent" ? "Agency *" : "Company/Agency *"}
+            </Label>
             <Select value={formData.company} onValueChange={(value) => handleInputChange("company", value)}>
               <SelectTrigger className={errors.company ? "border-destructive" : ""}>
                 <SelectValue placeholder="Select company" />
@@ -272,35 +267,31 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
           </div>
 
           {/* Tagged To */}
-          <div className="space-y-2">
-            <Label htmlFor="taggedTo">Tagged To</Label>
-            <Input
-              id="taggedTo"
-              value={formData.taggedTo}
-              onChange={(e) => handleInputChange("taggedTo", e.target.value)}
-              placeholder="Enter project or assignment"
-            />
-          </div>
-
-          {/* Conditional Fields for Lead Assigner */}
-          {formData.role === "Lead Assigner" && (
+          {(formData.role === "Lead Assigner" || formData.role === "CPV Agent") ? (
             <div className="space-y-2">
-              <Label htmlFor="mapWith">Map With *</Label>
-              <Select value={formData.mapWith} onValueChange={(value) => handleInputChange("mapWith", value)}>
-                <SelectTrigger className={errors.mapWith ? "border-destructive" : ""}>
-                  <SelectValue placeholder="Select mapping" />
+              <Label htmlFor="taggedTo">Tagged To</Label>
+              <Select value={formData.taggedTo} onValueChange={(value) => handleInputChange("taggedTo", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select company" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mapWithOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
+                  {companies.map((company) => (
+                    <SelectItem key={company} value={company}>
+                      {company}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.mapWith && (
-                <p className="text-sm text-destructive">{errors.mapWith}</p>
-              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="taggedTo">Tagged To</Label>
+              <Input
+                id="taggedTo"
+                value={formData.taggedTo}
+                onChange={(e) => handleInputChange("taggedTo", e.target.value)}
+                placeholder="Enter project or assignment"
+              />
             </div>
           )}
 
