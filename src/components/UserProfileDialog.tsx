@@ -244,7 +244,7 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({
                 Save
               </Button>
             </div>
-          )}
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
