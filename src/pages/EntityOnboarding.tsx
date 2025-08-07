@@ -17,8 +17,6 @@ import { useToast } from '@/hooks/use-toast'
 import { ArrowLeft, Upload, Building2, Users, X, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
-import { useAuth } from '@/hooks/useAuth'
-import { AuthGate } from '@/components/AuthGate'
 
 type EntityType = 'company' | 'agency' | null
 type OnboardingStep = 'selection' | 'details' | 'documents' | 'complete'
@@ -100,7 +98,6 @@ export default function EntityOnboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
-  const { user } = useAuth()
 
   const companyForm = useForm({
     resolver: zodResolver(companyDetailsSchema),
@@ -157,15 +154,6 @@ export default function EntityOnboarding() {
   }
 
   const handleFinalSubmit = async () => {
-    if (!user) {
-      toast({
-        title: 'Error',
-        description: 'You must be logged in to submit the form',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setIsSubmitting(true)
     
     try {
@@ -175,7 +163,7 @@ export default function EntityOnboarding() {
       // Map form data to database schema
       const entityData: any = {
         entity_type: entityType,
-        user_id: user.id,
+        user_id: null, // Allow anonymous access
         // Common fields
         address_line1: formData.addressLine1,
         address_line2: formData.addressLine2 || null,
@@ -985,12 +973,10 @@ export default function EntityOnboarding() {
   )
 
   return (
-    <AuthGate>
-      <div className="container mx-auto py-6 px-4">
-        {currentStep === 'selection' && renderEntitySelection()}
-        {currentStep === 'details' && renderDetailsForm()}
-        {currentStep === 'documents' && renderDocumentsForm()}
-      </div>
-    </AuthGate>
+    <div className="container mx-auto py-6 px-4">
+      {currentStep === 'selection' && renderEntitySelection()}
+      {currentStep === 'details' && renderDetailsForm()}
+      {currentStep === 'documents' && renderDocumentsForm()}
+    </div>
   )
 }

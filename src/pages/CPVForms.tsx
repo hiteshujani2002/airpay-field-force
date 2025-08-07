@@ -13,8 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client'
-import { useAuth } from '@/hooks/useAuth'
-import { AuthGate } from '@/components/AuthGate'
 
 interface CustomField {
   id: string;
@@ -44,7 +42,6 @@ interface CPVForm {
 const CPVForms = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
   
   // Main state
   const [currentView, setCurrentView] = useState<"dashboard" | "create" | "preview" | "edit">("dashboard");
@@ -97,42 +94,18 @@ const CPVForms = () => {
 
   // Load forms from Supabase on component mount
   useEffect(() => {
-    if (user && currentView === 'dashboard') {
+    if (currentView === 'dashboard') {
       loadForms()
     }
-  }, [user, currentView])
+  }, [currentView])
 
-  // Real-time subscription for forms
+  // Real-time subscription for forms - disabled for anonymous access
   useEffect(() => {
-    if (!user) return
-
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'cpv_forms',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('CPV Form change received!', payload)
-          if (currentView === 'dashboard') {
-            loadForms() // Reload forms when changes occur
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [user, currentView])
+    // Skip real-time updates for anonymous access
+    return () => {}
+  }, [currentView])
 
   const loadForms = async () => {
-    if (!user) return
-    
     setIsLoading(true)
     try {
       const { data, error } = await supabase
@@ -258,15 +231,6 @@ const CPVForms = () => {
   };
 
   const finalizeCPVForm = async () => {
-    if (!user) {
-      toast({
-        title: 'Error',
-        description: 'You must be logged in to create a CPV form',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setIsLoading(true)
     try {
       const formData = {
@@ -277,7 +241,7 @@ const CPVForms = () => {
           { id: "business", name: "Business Details", fields: businessFields },
           ...customSections
         ] as any,
-        user_id: user.id
+        user_id: null // Allow anonymous access
       }
 
       let result
@@ -542,25 +506,24 @@ const CPVForms = () => {
   );
 
   return (
-    <AuthGate>
-      <div className="min-h-screen bg-background p-6">
-        {currentView === "dashboard" ? renderDashboard() : (
-          <div className="max-w-4xl mx-auto">
-            {currentStep === 6 ? renderPreviewForm() : (
-              <div>
-                <div className="flex items-center gap-4 mb-6">
-                  <Button variant="ghost" onClick={goBack}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    {currentStep === 1 ? "Back to Dashboard" : "Back"}
-                  </Button>
-                  <div className="flex-1">
-                    <h1 className="text-2xl font-bold">{editingFormId ? 'Edit' : 'Create'} CPV Form</h1>
-                    <Progress value={(currentStep / 6) * 100} className="mt-2" />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Step {currentStep} of 6
-                    </p>
-                  </div>
+    <div className="min-h-screen bg-background p-6">
+      {currentView === "dashboard" ? renderDashboard() : (
+        <div className="max-w-4xl mx-auto">
+          {currentStep === 6 ? renderPreviewForm() : (
+            <div>
+              <div className="flex items-center gap-4 mb-6">
+                <Button variant="ghost" onClick={goBack}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {currentStep === 1 ? "Back to Dashboard" : "Back"}
+                </Button>
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold">{editingFormId ? 'Edit' : 'Create'} CPV Form</h1>
+                  <Progress value={(currentStep / 6) * 100} className="mt-2" />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Step {currentStep} of 6
+                  </p>
                 </div>
+              </div>
 
                 {currentStep === 1 && (
                   <Card>
@@ -678,12 +641,12 @@ const CPVForms = () => {
                     </CardContent>
                   </Card>
                 )}
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Dialogs */}
+      {/* Dialogs */}
         <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
           <DialogContent>
             <DialogHeader>
@@ -820,8 +783,7 @@ const CPVForms = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </AuthGate>
-  );
+    );
 };
 
 export default CPVForms;
