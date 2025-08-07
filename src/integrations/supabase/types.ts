@@ -14,7 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cpv_forms: {
+        Row: {
+          created_at: string | null
+          id: string
+          initiative: string
+          name: string
+          sections: Json
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          initiative: string
+          name: string
+          sections?: Json
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          initiative?: string
+          name?: string
+          sections?: Json
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      entities: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          agency_name: string | null
+          cin: string | null
+          city: string | null
+          company_name: string | null
+          company_type: Database["public"]["Enums"]["company_type"] | null
+          country: string | null
+          created_at: string | null
+          documents: Json | null
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          gst_number: string | null
+          id: string
+          office_ownership:
+            | Database["public"]["Enums"]["office_ownership"]
+            | null
+          pan: string | null
+          parent_company: string | null
+          pincode: string | null
+          state: string | null
+          udyam_number: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agency_name?: string | null
+          cin?: string | null
+          city?: string | null
+          company_name?: string | null
+          company_type?: Database["public"]["Enums"]["company_type"] | null
+          country?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          gst_number?: string | null
+          id?: string
+          office_ownership?:
+            | Database["public"]["Enums"]["office_ownership"]
+            | null
+          pan?: string | null
+          parent_company?: string | null
+          pincode?: string | null
+          state?: string | null
+          udyam_number?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          agency_name?: string | null
+          cin?: string | null
+          city?: string | null
+          company_name?: string | null
+          company_type?: Database["public"]["Enums"]["company_type"] | null
+          country?: string | null
+          created_at?: string | null
+          documents?: Json | null
+          entity_type?: Database["public"]["Enums"]["entity_type"]
+          gst_number?: string | null
+          id?: string
+          office_ownership?:
+            | Database["public"]["Enums"]["office_ownership"]
+            | null
+          pan?: string | null
+          parent_company?: string | null
+          pincode?: string | null
+          state?: string | null
+          udyam_number?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +130,24 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      company_type:
+        | "private_limited"
+        | "public_limited"
+        | "partnership"
+        | "sole_proprietorship"
+        | "llp"
+      entity_type: "company" | "agency"
+      field_data_type:
+        | "text"
+        | "number"
+        | "email"
+        | "phone"
+        | "date"
+        | "dropdown"
+        | "checkbox"
+        | "radio"
+      field_type: "text" | "image"
+      office_ownership: "owned" | "rented" | "shared"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +274,27 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      company_type: [
+        "private_limited",
+        "public_limited",
+        "partnership",
+        "sole_proprietorship",
+        "llp",
+      ],
+      entity_type: ["company", "agency"],
+      field_data_type: [
+        "text",
+        "number",
+        "email",
+        "phone",
+        "date",
+        "dropdown",
+        "checkbox",
+        "radio",
+      ],
+      field_type: ["text", "image"],
+      office_ownership: ["owned", "rented", "shared"],
+    },
   },
 } as const
