@@ -147,7 +147,7 @@ const CPVForms = () => {
         id: form.id,
         name: form.name,
         initiative: form.initiative,
-        sections: form.sections as FormSection[],
+        sections: (form.sections as unknown) as FormSection[],
         createdAt: new Date(form.created_at).toLocaleDateString()
       }))
       
