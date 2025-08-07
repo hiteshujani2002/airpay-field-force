@@ -34,39 +34,28 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
 
     try {
       if (isForgotPassword) {
-        // First, try to sign in with the new password to verify user exists
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password: newPassword,
+        console.log('Attempting password reset for:', email)
+        
+        // Use Supabase's password reset flow
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/`,
         })
         
-        if (signInError) {
-          // If sign in fails, user might exist but password is different
-          // Use password reset for security
-          const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/`,
-          })
-          if (error) throw error
-          
-          toast({
-            title: 'Password reset email sent!',
-            description: 'Please check your email to set your new password.',
-          })
-        } else {
-          // Sign in successful with new password
-          toast({
-            title: 'Password updated and signed in!',
-            description: 'Welcome back to your account.',
-          })
-          
-          // Close dialog and redirect to dashboard
-          onOpenChange(false)
-          navigate('/dashboard')
+        if (error) {
+          console.error('Password reset error:', error)
+          throw error
         }
         
+        console.log('Password reset email sent successfully')
+        toast({
+          title: 'Password reset email sent!',
+          description: 'Please check your email and follow the link to set your new password. After setting your new password via email, you can sign in here.',
+        })
+        
+        // Switch back to sign in mode and pre-fill email
         setIsForgotPassword(false)
-        setEmail('')
         setNewPassword('')
+        // Keep email filled for user convenience
       } else if (isSignUp) {
         await signUp(email, password)
         toast({
