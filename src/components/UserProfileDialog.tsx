@@ -244,14 +244,6 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({
                 Save
               </Button>
             </div>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="w-full"
-            >
-              Close
-            </Button>
           )}
         </div>
       </DialogContent>
