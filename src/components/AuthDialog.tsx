@@ -5,9 +5,12 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
+
+type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent'
 
 interface AuthDialogProps {
   open: boolean
@@ -22,11 +25,19 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [selectedRole, setSelectedRole] = useState<UserRole>('cpv_agent')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const { toast } = useToast()
   const navigate = useNavigate()
+
+  const roleLabels = {
+    super_admin: 'Super Admin',
+    client_admin: 'Client Admin', 
+    lead_assigner: 'Lead Assigner',
+    cpv_agent: 'CPV Agent'
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,13 +79,13 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
         setNewPassword('')
         // Keep email filled for user convenience
       } else if (isSignUp) {
-        await signUp(email, password)
+        await signUp(email, password, selectedRole)
         toast({
           title: 'Success!',
           description: 'Account created successfully. Please check your email to verify your account.',
         })
       } else {
-        await signIn(email, password)
+        await signIn(email, password, selectedRole)
         toast({
           title: 'Welcome back!',
           description: 'Successfully signed in.',
@@ -157,38 +168,51 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
               </div>
             )}
             {!isForgotPassword && (
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                {!isSignUp && (
-                  <div className="text-right">
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="pr-10"
+                    />
                     <button
                       type="button"
-                      onClick={() => setIsForgotPassword(true)}
-                      className="text-sm text-primary hover:underline"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      Forgot Password?
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                )}
-              </div>
+                  {!isSignUp && (
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => setIsForgotPassword(true)}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <Label>Select Role</Label>
+                  <RadioGroup value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
+                    {Object.entries(roleLabels).map(([value, label]) => (
+                      <div key={value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={value} id={value} />
+                        <Label htmlFor={value}>{label}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </>
             )}
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -5,7 +5,10 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Loader2 } from 'lucide-react'
+
+type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent'
 
 interface AuthGateProps {
   children: React.ReactNode
@@ -16,8 +19,16 @@ export const AuthGate = ({ children }: AuthGateProps) => {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [selectedRole, setSelectedRole] = useState<UserRole>('cpv_agent')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
+
+  const roleLabels = {
+    super_admin: 'Super Admin',
+    client_admin: 'Client Admin', 
+    lead_assigner: 'Lead Assigner',
+    cpv_agent: 'CPV Agent'
+  }
 
   if (loading) {
     return (
@@ -37,13 +48,13 @@ export const AuthGate = ({ children }: AuthGateProps) => {
 
     try {
       if (isSignUp) {
-        await signUp(email, password)
+        await signUp(email, password, selectedRole)
         toast({
           title: 'Success!',
           description: 'Account created successfully. Please check your email to verify your account.',
         })
       } else {
-        await signIn(email, password)
+        await signIn(email, password, selectedRole)
         toast({
           title: 'Welcome back!',
           description: 'Successfully signed in.',
@@ -90,6 +101,17 @@ export const AuthGate = ({ children }: AuthGateProps) => {
                 required
                 minLength={6}
               />
+            </div>
+            <div className="space-y-3">
+              <Label>Select Role</Label>
+              <RadioGroup value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
+                {Object.entries(roleLabels).map(([value, label]) => (
+                  <div key={value} className="flex items-center space-x-2">
+                    <RadioGroupItem value={value} id={value} />
+                    <Label htmlFor={value}>{label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
