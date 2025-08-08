@@ -6,13 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from '@/integrations/supabase/client'
+import { supabase } from '@/integrations/supabase/client';
+import { InitiativeSelector } from "@/components/cpv/InitiativeSelector";
+import { FieldEditor } from "@/components/cpv/FieldEditor";
+import { ImagePlaceholder } from "@/components/cpv/ImagePlaceholder";
 
 interface CustomField {
   id: string;
@@ -56,7 +58,7 @@ const CPVForms = () => {
   const [currentSection, setCurrentSection] = useState<"personal" | "business" | "custom" | "agent">("personal");
   const [currentCustomSectionId, setCurrentCustomSectionId] = useState<string | null>(null);
   
-  // Field management
+  // Field management with section-specific images
   const [personalFields, setPersonalFields] = useState<CustomField[]>([
     { id: "1", title: "Person Name", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
     { id: "2", title: "Contact Number", dataType: "numbers", mandatory: true, visible: true, type: "text" },
@@ -88,54 +90,44 @@ const CPVForms = () => {
   const [newQuestion, setNewQuestion] = useState({ title: "", dataType: "alphabets", mandatory: false });
   const [newImageField, setNewImageField] = useState({ documentName: "", mandatory: false, numberOfClicks: 1 });
   const [newSectionName, setNewSectionName] = useState("");
-  const [hasProceededToSectionBuilder, setHasProceededToSectionBuilder] = useState(false);
-
-  const initiatives = ["Banking Initiative", "Insurance Initiative", "NA"];
 
   // Load forms from Supabase on component mount
   useEffect(() => {
     if (currentView === 'dashboard') {
-      loadForms()
+      loadForms();
     }
-  }, [currentView])
-
-  // Real-time subscription for forms - disabled for anonymous access
-  useEffect(() => {
-    // Skip real-time updates for anonymous access
-    return () => {}
-  }, [currentView])
+  }, [currentView]);
 
   const loadForms = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('cpv_forms')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false });
 
-      if (error) throw error
+      if (error) throw error;
       
-      // Transform data to match our interface
       const transformedForms: CPVForm[] = data.map(form => ({
         id: form.id,
         name: form.name,
         initiative: form.initiative,
         sections: (form.sections as unknown) as FormSection[],
         createdAt: new Date(form.created_at).toLocaleDateString()
-      }))
+      }));
       
-      setForms(transformedForms)
+      setForms(transformedForms);
     } catch (error: any) {
-      console.error('Error loading forms:', error)
+      console.error('Error loading forms:', error);
       toast({
         title: 'Error',
         description: 'Failed to load CPV forms',
         variant: 'destructive',
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
   
   const getCurrentFields = () => {
     switch (currentSection) {
@@ -162,11 +154,19 @@ const CPVForms = () => {
     }
   };
 
+  const updateField = (updatedField: CustomField) => {
+    const currentFields = getCurrentFields();
+    const updatedFields = currentFields.map(field => 
+      field.id === updatedField.id ? updatedField : field
+    );
+    setCurrentFields(updatedFields);
+  };
+
   const goBack = () => {
     if (currentStep === 1) {
       setShowBackToDashboardDialog(true);
     } else if (currentStep === 6) {
-      setCurrentStep(5); // Preview goes back to CPV Agent Details
+      setCurrentStep(5);
     } else {
       setCurrentStep(currentStep - 1);
     }
@@ -226,61 +226,55 @@ const CPVForms = () => {
     setCurrentFields(updatedFields);
   };
 
-  const handleSubmitForm = () => {
-    setShowAdditionalSectionDialog(true);
-  };
-
   const finalizeCPVForm = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const formData = {
-        name: `CPV Form ${Date.now()}`, // Generate unique name
+        name: `CPV Form ${Date.now()}`,
         initiative: selectedInitiative,
         sections: [
           { id: "personal", name: "Personal Details", fields: personalFields },
           { id: "business", name: "Business Details", fields: businessFields },
           ...customSections
         ] as any,
-        user_id: null // Allow anonymous access
-      }
+        user_id: null
+      };
 
-      let result
+      let result;
       if (editingFormId) {
-        // Update existing form
         const { data, error } = await supabase
           .from('cpv_forms')
           .update(formData)
           .eq('id', editingFormId)
-          .select()
-        result = { data, error }
+          .select();
+        result = { data, error };
       } else {
-        // Create new form
         const { data, error } = await supabase
           .from('cpv_forms')
           .insert([formData])
-          .select()
-        result = { data, error }
+          .select();
+        result = { data, error };
       }
 
-      if (result.error) throw result.error
+      if (result.error) throw result.error;
 
       toast({
         title: 'Success!',
         description: editingFormId ? 'CPV form updated successfully!' : 'CPV form created successfully!',
-      })
+      });
       
-      setShowSuccessDialog(true)
+      setShowSuccessDialog(true);
     } catch (error: any) {
-      console.error('Error saving CPV form:', error)
+      console.error('Error saving CPV form:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to save CPV form',
         variant: 'destructive',
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const editForm = async (formId: string) => {
     const form = forms.find(f => f.id === formId);
@@ -304,7 +298,6 @@ const CPVForms = () => {
     setCustomSections([]);
     setEditingFormId(null);
     setNewSectionName("");
-    setHasProceededToSectionBuilder(false);
     setCurrentCustomSectionId("");
     setPersonalFields([
       { id: "1", title: "Person Name", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
@@ -333,16 +326,16 @@ const CPVForms = () => {
     const placeholders = [];
     for (let i = 0; i < field.numberOfClicks; i++) {
       placeholders.push(
-        <div key={i} className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
-          <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-500">
-            Upload {field.documentName} {field.numberOfClicks > 1 ? `(${i + 1}/${field.numberOfClicks})` : ''}
-          </p>
-        </div>
+        <ImagePlaceholder
+          key={`${field.id}-${i}`}
+          documentName={field.documentName || field.title}
+          imageIndex={i}
+          totalImages={field.numberOfClicks}
+        />
       );
     }
     return (
-      <div className="grid grid-cols-2 gap-2 mt-2">
+      <div className="grid grid-cols-2 gap-3 mt-3">
         {placeholders}
       </div>
     );
@@ -525,265 +518,233 @@ const CPVForms = () => {
                 </div>
               </div>
 
-                {currentStep === 1 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Select Initiative</CardTitle>
-                      <CardDescription>Choose the initiative for this CPV form</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <RadioGroup 
-                        value={selectedInitiative} 
-                        onValueChange={setSelectedInitiative}
-                        className="space-y-3"
+              {currentStep === 1 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Select Initiative</CardTitle>
+                    <CardDescription>Choose the initiative for this CPV form</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <InitiativeSelector
+                      value={selectedInitiative}
+                      onChange={setSelectedInitiative}
+                    />
+                    <div className="flex justify-end mt-6">
+                      <Button 
+                        onClick={() => setCurrentStep(2)} 
+                        disabled={!selectedInitiative}
                       >
-                        {initiatives.map((initiative) => (
-                          <div key={initiative} className="flex items-center space-x-2">
-                            <RadioGroupItem value={initiative} id={initiative} />
-                            <Label htmlFor={initiative}>{initiative}</Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                      <div className="flex justify-end mt-6">
-                        <Button 
-                          onClick={() => setCurrentStep(2)} 
-                          disabled={!selectedInitiative}
-                        >
-                          Continue
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                        Continue
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-                {(currentStep >= 2 && currentStep <= 5) && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>
-                        {currentStep === 2 && "Personal Details"}
-                        {currentStep === 3 && "Business Details"}
-                        {currentStep === 4 && "Additional Sections"}
-                        {currentStep === 5 && "CPV Agent Details"}
-                      </CardTitle>
-                      <CardDescription>
-                        Configure the form fields for this section
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          onClick={() => setShowAddQuestionDialog(true)}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Question
-                        </Button>
-                        <Button
-                          onClick={() => setShowCreateImageDialog(true)}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Add Image Upload
-                        </Button>
-                      </div>
+              {(currentStep >= 2 && currentStep <= 5) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {currentStep === 2 && "Personal Details"}
+                      {currentStep === 3 && "Business Details"}
+                      {currentStep === 4 && "Additional Sections"}
+                      {currentStep === 5 && "CPV Agent Details"}
+                    </CardTitle>
+                    <CardDescription>
+                      Configure the form fields for this section
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        onClick={() => setShowAddQuestionDialog(true)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Question
+                      </Button>
+                      <Button
+                        onClick={() => setShowCreateImageDialog(true)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Add Image Upload
+                      </Button>
+                    </div>
 
-                      {getCurrentFields().map((field) => (
-                        <div key={field.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium">{field.title}</span>
-                              {field.mandatory && <span className="text-red-500">*</span>}
-                              {field.type === "image" && (
-                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                  Image ({field.numberOfClicks} clicks)
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              Type: {field.dataType} | {field.visible ? 'Visible' : 'Hidden'}
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleFieldVisibility(field.id)}
-                            >
-                              {field.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeField(field.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                    {getCurrentFields().map((field) => (
+                      <FieldEditor
+                        key={field.id}
+                        field={field}
+                        onUpdate={updateField}
+                        onToggleVisibility={toggleFieldVisibility}
+                        onRemove={removeField}
+                        canRemove={currentStep !== 2 && currentStep !== 3}
+                      />
+                    ))}
 
-                      <div className="flex justify-between mt-6">
-                        <Button variant="outline" onClick={goBack}>
-                          Back
-                        </Button>
-                        <Button onClick={() => {
-                          if (currentStep === 5) {
-                            setCurrentStep(6); // Go to preview
-                          } else {
-                            setCurrentStep(currentStep + 1);
-                          }
-                        }}>
-                          {currentStep === 5 ? 'Preview Form' : 'Continue'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    <div className="flex justify-between mt-6">
+                      <Button variant="outline" onClick={goBack}>
+                        Back
+                      </Button>
+                      <Button onClick={() => {
+                        if (currentStep === 5) {
+                          setCurrentStep(6);
+                        } else {
+                          setCurrentStep(currentStep + 1);
+                        }
+                      }}>
+                        {currentStep === 5 ? 'Preview Form' : 'Continue'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </div>
       )}
 
       {/* Dialogs */}
-        <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Question</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="question-title">Question Title</Label>
-                <Input
-                  id="question-title"
-                  value={newQuestion.title}
-                  onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
-                  placeholder="Enter question title"
-                />
-              </div>
-              <div>
-                <Label htmlFor="data-type">Data Type</Label>
-                <Select 
-                  value={newQuestion.dataType} 
-                  onValueChange={(value) => setNewQuestion({ ...newQuestion, dataType: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="alphabets">Alphabets</SelectItem>
-                    <SelectItem value="numbers">Numbers</SelectItem>
-                    <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="mandatory"
-                  checked={newQuestion.mandatory}
-                  onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, mandatory: !!checked })}
-                />
-                <Label htmlFor="mandatory">Mandatory field</Label>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowAddQuestionDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addCustomField} disabled={!newQuestion.title}>
-                  Add Question
-                </Button>
-              </div>
+      <Dialog open={showAddQuestionDialog} onOpenChange={setShowAddQuestionDialog}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Add Question</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="question-title">Question Title</Label>
+              <Input
+                id="question-title"
+                value={newQuestion.title}
+                onChange={(e) => setNewQuestion({ ...newQuestion, title: e.target.value })}
+                placeholder="Enter question title"
+              />
             </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showCreateImageDialog} onOpenChange={setShowCreateImageDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Image Upload Field</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="document-name">Document Name</Label>
-                <Input
-                  id="document-name"
-                  value={newImageField.documentName}
-                  onChange={(e) => setNewImageField({ ...newImageField, documentName: e.target.value })}
-                  placeholder="Enter document name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="number-of-clicks">Number of Images</Label>
-                <Input
-                  id="number-of-clicks"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={newImageField.numberOfClicks}
-                  onChange={(e) => setNewImageField({ ...newImageField, numberOfClicks: parseInt(e.target.value) || 1 })}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="image-mandatory"
-                  checked={newImageField.mandatory}
-                  onCheckedChange={(checked) => setNewImageField({ ...newImageField, mandatory: !!checked })}
-                />
-                <Label htmlFor="image-mandatory">Mandatory field</Label>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowCreateImageDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={addImageField} disabled={!newImageField.documentName}>
-                  Add Image Field
-                </Button>
-              </div>
+            <div>
+              <Label htmlFor="data-type">Data Type</Label>
+              <Select 
+                value={newQuestion.dataType} 
+                onValueChange={(value) => setNewQuestion({ ...newQuestion, dataType: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border shadow-md z-50">
+                  <SelectItem value="alphabets">Alphabets</SelectItem>
+                  <SelectItem value="numbers">Numbers</SelectItem>
+                  <SelectItem value="alphanumeric">Alphanumeric</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Success!</DialogTitle>
-            </DialogHeader>
-            <div className="text-center py-4">
-              <p className="mb-4">
-                {editingFormId ? 'CPV form updated successfully!' : 'CPV form created successfully!'}
-              </p>
-              <Button onClick={() => {
-                setShowSuccessDialog(false);
-                setCurrentView("dashboard");
-                resetForm();
-              }}>
-                Back to Dashboard
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="mandatory"
+                checked={newQuestion.mandatory}
+                onCheckedChange={(checked) => setNewQuestion({ ...newQuestion, mandatory: !!checked })}
+              />
+              <Label htmlFor="mandatory">Mandatory field</Label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowAddQuestionDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={addCustomField} disabled={!newQuestion.title}>
+                Add Question
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog open={showBackToDashboardDialog} onOpenChange={setShowBackToDashboardDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirm Navigation</DialogTitle>
-            </DialogHeader>
+      <Dialog open={showCreateImageDialog} onOpenChange={setShowCreateImageDialog}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Add Image Upload Field</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
             <div>
-              <p className="mb-4">Are you sure you want to go back to the dashboard? All unsaved changes will be lost.</p>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowBackToDashboardDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleBackToDashboard} variant="destructive">
-                  Yes, Go Back
-                </Button>
-              </div>
+              <Label htmlFor="document-name">Document Name</Label>
+              <Input
+                id="document-name"
+                value={newImageField.documentName}
+                onChange={(e) => setNewImageField({ ...newImageField, documentName: e.target.value })}
+                placeholder="Enter document name"
+              />
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
+            <div>
+              <Label htmlFor="number-of-clicks">Number of Images</Label>
+              <Input
+                id="number-of-clicks"
+                type="number"
+                min="1"
+                max="10"
+                value={newImageField.numberOfClicks}
+                onChange={(e) => setNewImageField({ ...newImageField, numberOfClicks: parseInt(e.target.value) || 1 })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="image-mandatory"
+                checked={newImageField.mandatory}
+                onCheckedChange={(checked) => setNewImageField({ ...newImageField, mandatory: !!checked })}
+              />
+              <Label htmlFor="image-mandatory">Mandatory field</Label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowCreateImageDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={addImageField} disabled={!newImageField.documentName}>
+                Add Image Field
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Success!</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4">
+            <p className="mb-4">
+              {editingFormId ? 'CPV form updated successfully!' : 'CPV form created successfully!'}
+            </p>
+            <Button onClick={() => {
+              setShowSuccessDialog(false);
+              setCurrentView("dashboard");
+              resetForm();
+            }}>
+              Back to Dashboard
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showBackToDashboardDialog} onOpenChange={setShowBackToDashboardDialog}>
+        <DialogContent className="bg-white">
+          <DialogHeader>
+            <DialogTitle>Confirm Navigation</DialogTitle>
+          </DialogHeader>
+          <div>
+            <p className="mb-4">Are you sure you want to go back to the dashboard? All unsaved changes will be lost.</p>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowBackToDashboardDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleBackToDashboard} variant="destructive">
+                Yes, Go Back
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
 };
 
 export default CPVForms;
