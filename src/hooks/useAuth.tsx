@@ -33,9 +33,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
+      // Only fetch role if user is authenticated and we don't already have a role set
+      if (session?.user && !userRole) {
         fetchUserRole(session.user.id)
-      } else {
+      } else if (!session?.user) {
         setUserRole(null)
       }
       setLoading(false)
@@ -50,10 +51,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single()
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
       
       if (!error && data) {
+        console.log('Fetched user role:', data.role)
         setUserRole(data.role as UserRole)
+      } else if (error) {
+        console.error('Error fetching user role:', error)
+      } else {
+        console.log('No role found for user:', userId)
       }
     } catch (error) {
       console.error('Error fetching user role:', error)
@@ -92,9 +100,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     })
     if (error) throw error
 
-    // Fetch existing user role after successful signin
+    // Set the selected role for this session
     if (data.user) {
-      await fetchUserRole(data.user.id)
+      console.log('Setting user role to:', role)
+      setUserRole(role)
     }
   }
 

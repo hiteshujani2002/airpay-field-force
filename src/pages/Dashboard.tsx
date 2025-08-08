@@ -112,7 +112,9 @@ function AppSidebar({ userRole }: { userRole: UserRole | null }) {
 }
 
 const Dashboard = () => {
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
+
+  console.log('Dashboard - User:', user?.email, 'Role:', userRole);
 
   return (
     <AuthGate>
