@@ -286,11 +286,13 @@ const CPVForms = () => {
         { id: "agent", name: "CPV Agent Details", fields: agentFields }
       ];
 
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const formData = {
         name: `CPV Form ${Date.now()}`,
         initiative: selectedInitiative,
         sections: allSections as any,
-        user_id: null
+        user_id: user?.id || null
       };
 
       let result;
