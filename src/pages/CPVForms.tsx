@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Plus, Eye, EyeOff, X, Upload, Trash2, Edit, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ interface CPVForm {
 const CPVForms = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading } = useAuth();
   
   // Main state
   const [currentView, setCurrentView] = useState<"dashboard" | "create" | "preview" | "edit">("dashboard");
@@ -279,6 +281,33 @@ const CPVForms = () => {
   const finalizeCPVForm = async () => {
     setIsLoading(true);
     try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Authentication error:', authError);
+        toast({
+          title: 'Authentication Error',
+          description: 'Please sign in again.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!user) {
+        console.error('No authenticated user found');
+        toast({
+          title: 'Authentication Required',
+          description: 'You must be signed in to create a CPV form.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Authenticated user:', user.id);
+      
       const allSections = [
         { id: "personal", name: "Personal Details", fields: personalFields },
         { id: "business", name: "Business Details", fields: businessFields },
@@ -286,14 +315,14 @@ const CPVForms = () => {
         { id: "agent", name: "CPV Agent Details", fields: agentFields }
       ];
 
-      const { data: { user } } = await supabase.auth.getUser();
-      
       const formData = {
         name: `CPV Form ${Date.now()}`,
         initiative: selectedInitiative,
         sections: allSections as any,
-        user_id: user?.id || null
+        user_id: user.id
       };
+
+      console.log('Form data being saved:', formData);
 
       let result;
       if (editingFormId) {
@@ -592,6 +621,39 @@ const CPVForms = () => {
       )}
     </div>
   );
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+            <CardDescription>
+              You must be signed in to access CPV Forms.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate("/")} className="w-full">
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
