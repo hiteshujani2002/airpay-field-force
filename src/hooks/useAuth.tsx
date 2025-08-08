@@ -92,19 +92,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     })
     if (error) throw error
 
-    // Update user role after successful signin
+    // Fetch existing user role after successful signin
     if (data.user) {
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert([
-          { user_id: data.user.id, role }
-        ], { 
-          onConflict: 'user_id,role',
-          ignoreDuplicates: true 
-        })
-      
-      if (roleError) throw roleError
-      setUserRole(role)
+      await fetchUserRole(data.user.id)
     }
   }
 
