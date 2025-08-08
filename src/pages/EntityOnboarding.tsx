@@ -31,6 +31,9 @@ interface EntityData {
   agency_name?: string
   state?: string
   city?: string
+  spoc_email?: string
+  spoc_contact?: string
+  spoc_username?: string
   created_at: string
   user_id?: string
 }
@@ -168,7 +171,7 @@ export default function EntityOnboarding() {
     try {
       const { data, error } = await supabase
         .from('entities')
-        .select('*')
+        .select('id, entity_type, company_name, agency_name, state, city, spoc_email, spoc_contact, spoc_username, created_at, user_id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -239,6 +242,10 @@ export default function EntityOnboarding() {
         office_ownership: formData.officeOwnership === 'rented' ? 'rented' : 
                           formData.officeOwnership === 'owned' ? 'owned' : 'shared',
         documents: uploadedFiles.map(file => ({ name: file.name, size: file.size })),
+        // SPOC fields
+        spoc_email: formData.spocMail,
+        spoc_contact: formData.spocContact,
+        spoc_username: formData.spocUsername,
       }
 
       // Entity-specific fields
@@ -349,9 +356,9 @@ export default function EntityOnboarding() {
                       <TableCell>{index + 1}</TableCell>
                       <TableCell className="capitalize">{entity.entity_type}</TableCell>
                       <TableCell>{entity.company_name || entity.agency_name || '-'}</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>-</TableCell>
+                      <TableCell>{entity.spoc_email || '-'}</TableCell>
+                      <TableCell>{entity.spoc_contact || '-'}</TableCell>
+                      <TableCell>{entity.spoc_username || '-'}</TableCell>
                       <TableCell>{entity.state || '-'}</TableCell>
                       <TableCell>{entity.city || '-'}</TableCell>
                       <TableCell>Current User</TableCell>

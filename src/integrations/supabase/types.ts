@@ -65,6 +65,9 @@ export type Database = {
           pan: string | null
           parent_company: string | null
           pincode: string | null
+          spoc_contact: string | null
+          spoc_email: string | null
+          spoc_username: string | null
           state: string | null
           udyam_number: string | null
           updated_at: string | null
@@ -90,6 +93,9 @@ export type Database = {
           pan?: string | null
           parent_company?: string | null
           pincode?: string | null
+          spoc_contact?: string | null
+          spoc_email?: string | null
+          spoc_username?: string | null
           state?: string | null
           udyam_number?: string | null
           updated_at?: string | null
@@ -115,6 +121,9 @@ export type Database = {
           pan?: string | null
           parent_company?: string | null
           pincode?: string | null
+          spoc_contact?: string | null
+          spoc_email?: string | null
+          spoc_username?: string | null
           state?: string | null
           udyam_number?: string | null
           updated_at?: string | null
