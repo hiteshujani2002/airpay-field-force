@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { RoleSelector } from '@/components/ui/role-selector'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
@@ -32,12 +32,6 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
   const { toast } = useToast()
   const navigate = useNavigate()
 
-  const roleLabels = {
-    super_admin: 'Super Admin',
-    client_admin: 'Client Admin', 
-    lead_assigner: 'Lead Assigner',
-    cpv_agent: 'CPV Agent'
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -203,14 +197,10 @@ export const AuthDialog = ({ open, onOpenChange, defaultMode = 'signin' }: AuthD
                 </div>
                 <div className="space-y-3">
                   <Label>Select Role</Label>
-                  <RadioGroup value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
-                    {Object.entries(roleLabels).map(([value, label]) => (
-                      <div key={value} className="flex items-center space-x-2">
-                        <RadioGroupItem value={value} id={value} />
-                        <Label htmlFor={value}>{label}</Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
+                  <RoleSelector 
+                    value={selectedRole} 
+                    onChange={setSelectedRole}
+                  />
                 </div>
               </>
             )}
