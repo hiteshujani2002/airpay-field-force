@@ -33,10 +33,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      // Only fetch role if user is authenticated and we don't already have a role set
-      if (session?.user && !userRole) {
-        fetchUserRole(session.user.id)
-      } else if (!session?.user) {
+      
+      if (session?.user) {
+        // Check if user manually selected a role during sign-in
+        const selectedRole = sessionStorage.getItem('selectedRole') as UserRole
+        if (selectedRole) {
+          console.log('Using manually selected role:', selectedRole)
+          setUserRole(selectedRole)
+          // Clear the flag after using it
+          sessionStorage.removeItem('selectedRole')
+        } else if (!userRole) {
+          // Only fetch from database if no role is manually selected or set
+          fetchUserRole(session.user.id)
+        }
+      } else {
         setUserRole(null)
       }
       setLoading(false)
@@ -100,10 +110,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     })
     if (error) throw error
 
-    // Set the selected role for this session
+    // Set the selected role for this session and mark it as manually set
     if (data.user) {
       console.log('Setting user role to:', role)
       setUserRole(role)
+      // Use a flag to prevent overriding the manually selected role
+      sessionStorage.setItem('selectedRole', role)
     }
   }
 
@@ -111,6 +123,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     setUserRole(null)
+    // Clear any stored role selection
+    sessionStorage.removeItem('selectedRole')
   }
 
   const value = {
