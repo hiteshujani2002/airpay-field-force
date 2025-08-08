@@ -10,6 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 import { InitiativeSelector } from "@/components/cpv/InitiativeSelector";
@@ -79,6 +81,14 @@ const CPVForms = () => {
     { id: "10", title: "Number of years in the present office", dataType: "numbers", mandatory: false, visible: true, type: "text" },
   ]);
 
+  const [agentFields] = useState<CustomField[]>([
+    { id: "1", title: "Visit Date", dataType: "alphanumeric", mandatory: true, visible: true, type: "text" },
+    { id: "2", title: "Visit Time", dataType: "alphanumeric", mandatory: true, visible: true, type: "text" },
+    { id: "3", title: "Employee Name", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+    { id: "4", title: "Employee Code", dataType: "alphanumeric", mandatory: true, visible: true, type: "text" },
+    { id: "5", title: "Employee Signature", dataType: "alphabets", mandatory: true, visible: true, type: "text" },
+  ]);
+
   // Dialog states
   const [showAddQuestionDialog, setShowAddQuestionDialog] = useState(false);
   const [showCreateImageDialog, setShowCreateImageDialog] = useState(false);
@@ -133,6 +143,7 @@ const CPVForms = () => {
     switch (currentSection) {
       case "personal": return personalFields;
       case "business": return businessFields;
+      case "agent": return agentFields;
       case "custom": 
         const section = customSections.find(s => s.id === currentCustomSectionId);
         return section ? section.fields : [];
@@ -144,6 +155,7 @@ const CPVForms = () => {
     switch (currentSection) {
       case "personal": setPersonalFields(fields); break;
       case "business": setBusinessFields(fields); break;
+      case "agent": break; // Agent fields are read-only
       case "custom":
         setCustomSections(sections => 
           sections.map(s => 
@@ -166,7 +178,15 @@ const CPVForms = () => {
     if (currentStep === 1) {
       setShowBackToDashboardDialog(true);
     } else if (currentStep === 6) {
-      setCurrentStep(5);
+      // Go back from preview based on whether custom sections exist
+      if (customSections.length > 0) {
+        setCurrentSection("custom");
+        setCurrentCustomSectionId(customSections[customSections.length - 1].id);
+        setCurrentStep(4);
+      } else {
+        setCurrentSection("agent");
+        setCurrentStep(5);
+      }
     } else {
       setCurrentStep(currentStep - 1);
     }
@@ -226,17 +246,50 @@ const CPVForms = () => {
     setCurrentFields(updatedFields);
   };
 
+  const handleBusinessSubmit = () => {
+    setShowAdditionalSectionDialog(true);
+  };
+
+  const handleAdditionalSectionResponse = (createAdditional: boolean) => {
+    setShowAdditionalSectionDialog(false);
+    if (createAdditional) {
+      setCurrentStep(4);
+      setCurrentSection("custom");
+    } else {
+      setCurrentStep(5);
+      setCurrentSection("agent");
+    }
+  };
+
+  const createAdditionalSection = () => {
+    if (!newSectionName.trim()) return;
+    
+    const newSection: FormSection = {
+      id: Date.now().toString(),
+      name: newSectionName,
+      fields: []
+    };
+    
+    setCustomSections([...customSections, newSection]);
+    setCurrentCustomSectionId(newSection.id);
+    setCurrentSection("custom");
+    setNewSectionName("");
+  };
+
   const finalizeCPVForm = async () => {
     setIsLoading(true);
     try {
+      const allSections = [
+        { id: "personal", name: "Personal Details", fields: personalFields },
+        { id: "business", name: "Business Details", fields: businessFields },
+        ...customSections,
+        { id: "agent", name: "CPV Agent Details", fields: agentFields }
+      ];
+
       const formData = {
         name: `CPV Form ${Date.now()}`,
         initiative: selectedInitiative,
-        sections: [
-          { id: "personal", name: "Personal Details", fields: personalFields },
-          { id: "business", name: "Business Details", fields: businessFields },
-          ...customSections
-        ] as any,
+        sections: allSections as any,
         user_id: null
       };
 
@@ -341,11 +394,52 @@ const CPVForms = () => {
     );
   };
 
+  const renderBusinessField = (field: CustomField) => {
+    // Special rendering for specific business fields
+    switch (field.title) {
+      case "Address Confirmed":
+        return (
+          <RadioGroup disabled className="flex gap-4">
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="yes" id="yes" />
+              <Label htmlFor="yes">Yes</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="no" id="no" />
+              <Label htmlFor="no">No</Label>
+            </div>
+          </RadioGroup>
+        );
+      case "Nature of Business":
+      case "Type of business":
+      case "Office Ownership":
+        return (
+          <Select disabled>
+            <SelectTrigger className="bg-gray-50">
+              <SelectValue placeholder={`Select ${field.title.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="custom">Custom options will be available</SelectItem>
+            </SelectContent>
+          </Select>
+        );
+      default:
+        return (
+          <Input 
+            placeholder={`Enter ${field.title.toLowerCase()}`} 
+            disabled 
+            className="bg-gray-50"
+          />
+        );
+    }
+  };
+
   const renderPreviewForm = () => {
     const allSections = [
       { id: "personal", name: "Personal Details", fields: personalFields },
       { id: "business", name: "Business Details", fields: businessFields },
-      ...customSections
+      ...customSections,
+      { id: "agent", name: "CPV Agent Details", fields: agentFields }
     ];
 
     return (
@@ -369,11 +463,15 @@ const CPVForms = () => {
                       {field.mandatory && <span className="text-red-500">*</span>}
                     </Label>
                     {field.type === "text" ? (
-                      <Input 
-                        placeholder={`Enter ${field.title.toLowerCase()}`} 
-                        disabled 
-                        className="bg-gray-50"
-                      />
+                      section.id === "business" ? renderBusinessField(field) : (
+                        section.id === "agent" ? renderAgentField(field) : (
+                          <Input 
+                            placeholder={`Enter ${field.title.toLowerCase()}`} 
+                            disabled 
+                            className="bg-gray-50"
+                          />
+                        )
+                      )
                     ) : (
                       <div>
                         <p className="text-sm text-muted-foreground mb-2">
@@ -387,34 +485,6 @@ const CPVForms = () => {
             </div>
           ))}
           
-          {/* CPV Agent Details Section */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2">CPV Agent Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Visit Date *</Label>
-                <Input type="date" disabled className="bg-gray-50" />
-              </div>
-              <div>
-                <Label>Visit Time *</Label>
-                <Input type="time" disabled className="bg-gray-50" />
-              </div>
-              <div>
-                <Label>Employee Name *</Label>
-                <Input placeholder="Agent will fill this" disabled className="bg-gray-50" />
-              </div>
-              <div>
-                <Label>Employee Code *</Label>
-                <Input placeholder="Agent will fill this" disabled className="bg-gray-50" />
-              </div>
-            </div>
-            <div>
-              <Label>Employee Signature *</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
-                <p className="text-muted-foreground">Signature area for CPV agent</p>
-              </div>
-            </div>
-          </div>
 
           <div className="flex gap-4 pt-4">
             <Button onClick={goBack} variant="outline" className="w-full">
@@ -428,6 +498,29 @@ const CPVForms = () => {
         </CardContent>
       </Card>
     );
+  };
+
+  const renderAgentField = (field: CustomField) => {
+    switch (field.title) {
+      case "Visit Date":
+        return <Input type="date" disabled className="bg-gray-50" />;
+      case "Visit Time":
+        return <Input type="time" disabled className="bg-gray-50" />;
+      case "Employee Signature":
+        return (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
+            <p className="text-muted-foreground">Signature area for CPV agent</p>
+          </div>
+        );
+      default:
+        return (
+          <Input 
+            placeholder={`Agent will fill this`} 
+            disabled 
+            className="bg-gray-50"
+          />
+        );
+    }
   };
 
   const renderDashboard = () => (
@@ -541,23 +634,19 @@ const CPVForms = () => {
                 </Card>
               )}
 
-              {(currentStep >= 2 && currentStep <= 5) && (
+              {currentStep === 2 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>
-                      {currentStep === 2 && "Personal Details"}
-                      {currentStep === 3 && "Business Details"}
-                      {currentStep === 4 && "Additional Sections"}
-                      {currentStep === 5 && "CPV Agent Details"}
-                    </CardTitle>
-                    <CardDescription>
-                      Configure the form fields for this section
-                    </CardDescription>
+                    <CardTitle>Personal Details Verification</CardTitle>
+                    <CardDescription>Configure the personal details section</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex justify-end space-x-2">
                       <Button
-                        onClick={() => setShowAddQuestionDialog(true)}
+                        onClick={() => {
+                          setCurrentSection("personal");
+                          setShowAddQuestionDialog(true);
+                        }}
                         variant="outline"
                         size="sm"
                       >
@@ -565,7 +654,10 @@ const CPVForms = () => {
                         Add Question
                       </Button>
                       <Button
-                        onClick={() => setShowCreateImageDialog(true)}
+                        onClick={() => {
+                          setCurrentSection("personal");
+                          setShowCreateImageDialog(true);
+                        }}
                         variant="outline"
                         size="sm"
                       >
@@ -574,14 +666,14 @@ const CPVForms = () => {
                       </Button>
                     </div>
 
-                    {getCurrentFields().map((field) => (
+                    {personalFields.map((field) => (
                       <FieldEditor
                         key={field.id}
                         field={field}
                         onUpdate={updateField}
                         onToggleVisibility={toggleFieldVisibility}
                         onRemove={removeField}
-                        canRemove={currentStep !== 2 && currentStep !== 3}
+                        canRemove={false}
                       />
                     ))}
 
@@ -590,13 +682,205 @@ const CPVForms = () => {
                         Back
                       </Button>
                       <Button onClick={() => {
-                        if (currentStep === 5) {
-                          setCurrentStep(6);
+                        setCurrentStep(3);
+                        setCurrentSection("business");
+                      }}>
+                        Continue
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {currentStep === 3 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Business Details Verification</CardTitle>
+                    <CardDescription>Configure the business details section</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        onClick={() => {
+                          setCurrentSection("business");
+                          setShowAddQuestionDialog(true);
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Question
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setCurrentSection("business");
+                          setShowCreateImageDialog(true);
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Add Image Upload
+                      </Button>
+                    </div>
+
+                    {businessFields.map((field) => (
+                      <FieldEditor
+                        key={field.id}
+                        field={field}
+                        onUpdate={updateField}
+                        onToggleVisibility={toggleFieldVisibility}
+                        onRemove={removeField}
+                        canRemove={false}
+                      />
+                    ))}
+
+                    <div className="flex justify-between mt-6">
+                      <Button variant="outline" onClick={goBack}>
+                        Back
+                      </Button>
+                      <Button onClick={handleBusinessSubmit}>
+                        Submit
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {currentStep === 4 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {currentCustomSectionId ? 
+                        customSections.find(s => s.id === currentCustomSectionId)?.name || "Additional Section" :
+                        "Create Additional Section"
+                      }
+                    </CardTitle>
+                    <CardDescription>
+                      {currentCustomSectionId ? 
+                        "Configure this additional section" :
+                        "Create a new section for your CPV form"
+                      }
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {!currentCustomSectionId ? (
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="section-name">Section Name</Label>
+                          <Input
+                            id="section-name"
+                            value={newSectionName}
+                            onChange={(e) => setNewSectionName(e.target.value)}
+                            placeholder="Enter section name"
+                          />
+                        </div>
+                        <div className="flex justify-between">
+                          <Button variant="outline" onClick={() => {
+                            setCurrentStep(5);
+                            setCurrentSection("agent");
+                          }}>
+                            Back
+                          </Button>
+                          <Button onClick={createAdditionalSection} disabled={!newSectionName.trim()}>
+                            Create Section
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            onClick={() => {
+                              setCurrentSection("custom");
+                              setShowAddQuestionDialog(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Question
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setCurrentSection("custom");
+                              setShowCreateImageDialog(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Add Image Upload
+                          </Button>
+                        </div>
+
+                        {getCurrentFields().map((field) => (
+                          <FieldEditor
+                            key={field.id}
+                            field={field}
+                            onUpdate={updateField}
+                            onToggleVisibility={toggleFieldVisibility}
+                            onRemove={removeField}
+                            canRemove={true}
+                          />
+                        ))}
+
+                        <div className="flex justify-between mt-6">
+                          <Button variant="outline" onClick={() => {
+                            setCurrentStep(3);
+                            setCurrentSection("business");
+                          }}>
+                            Back
+                          </Button>
+                          <Button onClick={() => {
+                            setCurrentStep(5);
+                            setCurrentSection("agent");
+                          }}>
+                            Proceed
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {currentStep === 5 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>CPV Agent Details</CardTitle>
+                    <CardDescription>Final mandatory section - Agent information fields</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground bg-blue-50 p-3 rounded-lg">
+                      This section contains mandatory fields that cannot be modified. These will be filled by the CPV agent during verification.
+                    </p>
+
+                    {agentFields.map((field) => (
+                      <div key={field.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium">{field.title}</span>
+                          <span className="text-red-500">*</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">Mandatory</span>
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between mt-6">
+                      <Button variant="outline" onClick={() => {
+                        if (customSections.length > 0) {
+                          setCurrentStep(4);
+                          setCurrentSection("custom");
+                          setCurrentCustomSectionId(customSections[customSections.length - 1].id);
                         } else {
-                          setCurrentStep(currentStep + 1);
+                          setCurrentStep(3);
+                          setCurrentSection("business");
                         }
                       }}>
-                        {currentStep === 5 ? 'Preview Form' : 'Continue'}
+                        Back
+                      </Button>
+                      <Button onClick={() => setCurrentStep(6)}>
+                        Preview Form
                       </Button>
                     </div>
                   </CardContent>
@@ -743,6 +1027,25 @@ const CPVForms = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showAdditionalSectionDialog} onOpenChange={setShowAdditionalSectionDialog}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Additional Section</AlertDialogTitle>
+            <AlertDialogDescription>
+              Do you wish to create an additional section for your CPV Form?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleAdditionalSectionResponse(false)}>
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleAdditionalSectionResponse(true)}>
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
