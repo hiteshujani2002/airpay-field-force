@@ -110,6 +110,8 @@ type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent'
 
 const CPVMerchantStatus = () => {
   const { userRole } = useAuth()
+  
+  console.log('CPVMerchantStatus - Current user role:', userRole)
   const [selectedForm, setSelectedForm] = useState<any>(null)
   const [showMerchants, setShowMerchants] = useState(false)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
