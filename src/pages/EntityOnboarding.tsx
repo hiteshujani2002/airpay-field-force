@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -10,16 +10,30 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft, Upload, Building2, Users, X, Loader2 } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { ArrowLeft, Upload, Building2, Users, X, Loader2, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 
 type EntityType = 'company' | 'agency' | null
 type OnboardingStep = 'selection' | 'details' | 'documents' | 'complete'
+type DashboardView = 'dashboard' | 'onboarding'
+
+interface EntityData {
+  id: string
+  entity_type: 'company' | 'agency'
+  company_name?: string
+  agency_name?: string
+  state?: string
+  city?: string
+  created_at: string
+  user_id?: string
+}
 
 const companyDetailsSchema = z.object({
   companyName: z.string().regex(/^[A-Za-z\s]+$/, 'Only alphabetic characters allowed'),
@@ -91,12 +105,16 @@ const mockCompanies = [
 ]
 
 export default function EntityOnboarding() {
+  const [view, setView] = useState<DashboardView>('dashboard')
   const [entityType, setEntityType] = useState<EntityType>(null)
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('selection')
   const [selectedState, setSelectedState] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [entities, setEntities] = useState<EntityData[]>([])
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const companyForm = useForm({
@@ -139,9 +157,48 @@ export default function EntityOnboarding() {
     }
   })
 
+  // Fetch entities on component mount
+  useEffect(() => {
+    fetchEntities()
+  }, [user])
+
+  const fetchEntities = async () => {
+    if (!user) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('entities')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setEntities(data || [])
+    } catch (error) {
+      console.error('Error fetching entities:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOnboardClick = () => {
+    setView('onboarding')
+    setCurrentStep('selection')
+  }
+
   const handleEntitySelection = (type: EntityType) => {
     setEntityType(type)
     setCurrentStep('details')
+  }
+
+  const handleBackToDashboard = () => {
+    setView('dashboard')
+    setEntityType(null)
+    setCurrentStep('selection')
+    setUploadedFiles([])
+    companyForm.reset()
+    agencyForm.reset()
+    setSelectedState('')
   }
 
   const handleDetailsSubmit = (data: any) => {
@@ -216,13 +273,9 @@ export default function EntityOnboarding() {
         description: successMessage,
       })
       
-      // Reset form
-      setEntityType(null)
-      setCurrentStep('selection')
-      setUploadedFiles([])
-      companyForm.reset()
-      agencyForm.reset()
-      setSelectedState('')
+      // Reset form and go back to dashboard
+      handleBackToDashboard()
+      await fetchEntities() // Refresh the entities list
       
     } catch (error: any) {
       console.error('Error submitting entity:', error)
@@ -241,8 +294,81 @@ export default function EntityOnboarding() {
     setUploadedFiles(prev => [...prev, ...files])
   }
 
+  const renderDashboard = () => (
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Entity Onboarding</h1>
+            <p className="text-muted-foreground">Manage your onboarded companies and agencies</p>
+          </div>
+          <Button onClick={handleOnboardClick} className="flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
+            <span>Onboard an Entity</span>
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <span>Loading entities...</span>
+          </div>
+        ) : entities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <Building2 className="h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">No entities onboarded yet</h2>
+            <p className="text-muted-foreground mb-6">Start by onboarding your first company or agency</p>
+            <Button onClick={handleOnboardClick} size="lg">
+              Onboard an Entity
+            </Button>
+          </div>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Onboarded Entities</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sr No</TableHead>
+                    <TableHead>Entity Type</TableHead>
+                    <TableHead>Entity Name</TableHead>
+                    <TableHead>SPOC Mail</TableHead>
+                    <TableHead>SPOC Contact Number</TableHead>
+                    <TableHead>SPOC Username</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead>Created By</TableHead>
+                    <TableHead>Created On</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {entities.map((entity, index) => (
+                    <TableRow key={entity.id}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell className="capitalize">{entity.entity_type}</TableCell>
+                      <TableCell>{entity.company_name || entity.agency_name || '-'}</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>{entity.state || '-'}</TableCell>
+                      <TableCell>{entity.city || '-'}</TableCell>
+                      <TableCell>Current User</TableCell>
+                      <TableCell>{new Date(entity.created_at).toLocaleDateString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+
   const renderEntitySelection = () => (
-    <Dialog open={currentStep === 'selection'} onOpenChange={() => navigate('/dashboard')}>
+    <Dialog open={currentStep === 'selection'} onOpenChange={handleBackToDashboard}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center">Entity Onboarding</DialogTitle>
@@ -276,9 +402,9 @@ export default function EntityOnboarding() {
     const availableCities = selectedState ? cityMap[selectedState] || [] : []
 
     return (
-      <div className="space-y-6">
+        <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={handleBackToDashboard}>
             <X className="h-4 w-4 mr-2" />
             Close
           </Button>
@@ -572,9 +698,9 @@ export default function EntityOnboarding() {
     const availableCities = selectedState ? cityMap[selectedState] || [] : []
 
     return (
-      <div className="space-y-6">
+        <div className="space-y-6">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={handleBackToDashboard}>
             <X className="h-4 w-4 mr-2" />
             Close
           </Button>
@@ -983,11 +1109,17 @@ export default function EntityOnboarding() {
     </div>
   )
 
-  return (
-    <div className="container mx-auto py-6 px-4">
-      {currentStep === 'selection' && renderEntitySelection()}
-      {currentStep === 'details' && renderDetailsForm()}
-      {currentStep === 'documents' && renderDocumentsForm()}
-    </div>
-  )
+  // Show onboarding flow if in onboarding view
+  if (view === 'onboarding') {
+    return (
+      <div className="container mx-auto py-6 px-4">
+        {currentStep === 'selection' && renderEntitySelection()}
+        {currentStep === 'details' && renderDetailsForm()}
+        {currentStep === 'documents' && renderDocumentsForm()}
+      </div>
+    )
+  }
+
+  // Default to dashboard view
+  return renderDashboard()
 }
