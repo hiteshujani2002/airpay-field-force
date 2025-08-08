@@ -741,7 +741,7 @@ const CPVForms = () => {
               </Button>
             </div>
           </div>
-        </div>
+        </DialogContent>
       </Dialog>
     </div>
   );
