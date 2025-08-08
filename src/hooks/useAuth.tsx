@@ -98,7 +98,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('user_roles')
         .upsert([
           { user_id: data.user.id, role }
-        ])
+        ], { 
+          onConflict: 'user_id,role',
+          ignoreDuplicates: true 
+        })
       
       if (roleError) throw roleError
       setUserRole(role)
