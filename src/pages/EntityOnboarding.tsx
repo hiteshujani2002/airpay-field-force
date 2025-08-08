@@ -305,9 +305,15 @@ export default function EntityOnboarding() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Entity Onboarding</h1>
-            <p className="text-muted-foreground">Manage your onboarded companies and agencies</p>
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" onClick={() => navigate('/')} className="flex items-center space-x-2">
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Dashboard</span>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Entity Onboarding</h1>
+              <p className="text-muted-foreground">Manage your onboarded companies and agencies</p>
+            </div>
           </div>
           <Button onClick={handleOnboardClick} className="flex items-center space-x-2">
             <Plus className="h-4 w-4" />
