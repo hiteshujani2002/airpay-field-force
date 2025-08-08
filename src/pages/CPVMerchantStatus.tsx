@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
 import { AuthGate } from '@/components/AuthGate'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -10,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Eye, MoreHorizontal, Download, Upload, FileText, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Eye, MoreHorizontal, Download, Upload, FileText, CheckCircle, XCircle, Clock, ArrowLeft } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 // Dummy data for demonstration
@@ -110,6 +111,7 @@ type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent'
 
 const CPVMerchantStatus = () => {
   const { userRole } = useAuth()
+  const navigate = useNavigate()
   
   console.log('CPVMerchantStatus - Current user role:', userRole)
   const [selectedForm, setSelectedForm] = useState<any>(null)
@@ -165,6 +167,14 @@ const CPVMerchantStatus = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/')}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
           <h1 className="text-3xl font-bold tracking-tight">CPV Merchant Status</h1>
           <p className="text-muted-foreground">Manage and monitor CPV forms and merchant verification status</p>
         </div>
@@ -349,6 +359,14 @@ const CPVMerchantStatus = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/')}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
           <h1 className="text-3xl font-bold tracking-tight">CPV Forms - Lead Management</h1>
           <p className="text-muted-foreground">Manage assigned CPV forms and delegate to agents</p>
         </div>
@@ -508,6 +526,14 @@ const CPVMerchantStatus = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/')}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
           <h1 className="text-3xl font-bold tracking-tight">CPV Agent Dashboard</h1>
           <p className="text-muted-foreground">Manage your assigned verification tasks</p>
         </div>
