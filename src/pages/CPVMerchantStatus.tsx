@@ -621,17 +621,29 @@ const CPVMerchantStatus = () => {
   )
 
   const renderContent = () => {
-    if (!userRole) return <div>Loading...</div>
+    console.log('CPVMerchantStatus - renderContent called with userRole:', userRole)
+    
+    if (!userRole) {
+      console.log('No userRole found, showing loading...')
+      return <div>Loading...</div>
+    }
 
+    console.log('Rendering view for role:', userRole)
     switch (userRole) {
       case 'super_admin':
+        console.log('Rendering Super Admin view')
+        return renderAdminView()
       case 'client_admin':
+        console.log('Rendering Client Admin view')
         return renderAdminView()
       case 'lead_assigner':
+        console.log('Rendering Lead Assigner view')
         return renderLeadAssignerView()
       case 'cpv_agent':
+        console.log('Rendering CPV Agent view')
         return renderCPVAgentView()
       default:
+        console.log('Unknown role, denying access:', userRole)
         return <div>Access denied</div>
     }
   }

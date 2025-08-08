@@ -21,11 +21,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session and stored role
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
+      
       if (session?.user) {
-        fetchUserRole(session.user.id)
+        // First check if we have a stored role for this session
+        const storedRole = sessionStorage.getItem(`userRole_${session.user.id}`)
+        if (storedRole) {
+          console.log('Restoring stored role:', storedRole)
+          setUserRole(storedRole as UserRole)
+        } else {
+          // Fallback to fetching from database
+          fetchUserRole(session.user.id)
+        }
       }
       setLoading(false)
     })
@@ -36,9 +45,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (!session?.user) {
         setUserRole(null)
+        // Clear stored role on logout
+        sessionStorage.removeItem(`userRole_${session?.user?.id || ''}`)
+      } else {
+        // Restore role from storage when session is restored
+        const storedRole = sessionStorage.getItem(`userRole_${session.user.id}`)
+        if (storedRole) {
+          console.log('Auth state changed - restoring role:', storedRole)
+          setUserRole(storedRole as UserRole)
+        }
       }
-      // Note: We don't automatically fetch role here anymore - only during initial load
-      // Role will be set manually during sign-in process
       setLoading(false)
     })
 
@@ -100,14 +116,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     })
     if (error) throw error
 
-    // Set the selected role for this session
+    // Set the selected role for this session and store it
     if (data.user) {
       console.log('Setting user role to:', role)
       setUserRole(role)
+      // Store role in sessionStorage for persistence
+      sessionStorage.setItem(`userRole_${data.user.id}`, role)
     }
   }
 
   const signOut = async () => {
+    // Clear stored role before signing out
+    if (user) {
+      sessionStorage.removeItem(`userRole_${user.id}`)
+    }
+    
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     setUserRole(null)
