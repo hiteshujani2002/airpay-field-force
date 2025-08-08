@@ -18,14 +18,14 @@ const roleLabels = {
 
 export const RoleSelector = ({ value, onChange, className }: RoleSelectorProps) => {
   return (
-    <div className={cn("grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg", className)}>
+    <div className={cn("flex p-1 bg-muted rounded-lg", className)}>
       {Object.entries(roleLabels).map(([roleValue, label]) => (
         <button
           key={roleValue}
           type="button"
           onClick={() => onChange(roleValue as UserRole)}
           className={cn(
-            "px-3 py-2 text-sm font-medium rounded-md transition-all duration-200",
+            "flex-1 px-3 py-2 text-xs font-medium rounded-md transition-all duration-200 text-center",
             "hover:bg-background/80 hover:shadow-sm",
             value === roleValue
               ? "bg-background text-foreground shadow-sm"
