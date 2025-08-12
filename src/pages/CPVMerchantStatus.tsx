@@ -162,7 +162,7 @@ const CPVMerchantStatus = () => {
         state: row['State'],
         pincode: row['Pincode'],
         cpv_agent: 'NA',
-        assigned_lead_assigner_id: leadAssignerId,
+        assigned_lead_assigner_id: leadAssignerId === 'unassigned' ? null : leadAssignerId,
         uploaded_by_user_id: user.id,
         assigned_on: new Date().toISOString(),
         verification_status: 'pending'
@@ -419,7 +419,7 @@ const CPVMerchantStatus = () => {
       if (!selectedFile || !selectedLeadAssigner) {
         toast({
           title: 'Missing Information',
-          description: 'Please select both an Excel file and a Lead Assigner',
+          description: 'Please select both an Excel file and a Lead Assigner option',
           variant: 'destructive',
         })
         return
@@ -477,9 +477,9 @@ const CPVMerchantStatus = () => {
                     <SelectValue placeholder="Select Lead Assigner" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="lead1">Lead Assigner 1</SelectItem>
-                    <SelectItem value="lead2">Lead Assigner 2</SelectItem>
-                    <SelectItem value="lead3">Lead Assigner 3</SelectItem>
+                    <SelectItem value="unassigned">Unassigned (Will be assigned later)</SelectItem>
+                    <SelectItem value="a1b2c3d4-e5f6-7890-abcd-ef1234567890">John Smith (Lead Assigner)</SelectItem>
+                    <SelectItem value="b2c3d4e5-f6g7-8901-bcde-f23456789012">Sarah Johnson (Lead Assigner)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
