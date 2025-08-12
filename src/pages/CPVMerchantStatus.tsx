@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Eye, MoreHorizontal, Download, Upload, FileText, CheckCircle, XCircle, Clock, ArrowLeft, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
-import MerchantUploadDialog from '@/components/MerchantUploadDialog'
+
 
 interface CPVForm {
   id: string;
@@ -380,13 +380,102 @@ const CPVMerchantStatus = () => {
   }
 
   const renderMerchantDetailsDialog = () => {
+    const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
+    const [selectedLeadAssigner, setSelectedLeadAssigner] = React.useState<string>('')
+    const [uploading, setUploading] = React.useState(false)
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (file) {
+        setSelectedFile(file)
+      }
+    }
+
+    const handleUploadClick = async () => {
+      if (!selectedFile || !selectedLeadAssigner) {
+        toast({
+          title: 'Missing Information',
+          description: 'Please select both an Excel file and a Lead Assigner',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setUploading(true)
+      await handleUploadAndAssign(selectedFile, selectedLeadAssigner)
+      setUploading(false)
+    }
+
     return (
-      <MerchantUploadDialog
-        open={showMerchantDetails}
-        onOpenChange={setShowMerchantDetails}
-        onUpload={handleUploadAndAssign}
-        formName={selectedForm?.name}
-      />
+      <Dialog open={showMerchantDetails} onOpenChange={setShowMerchantDetails}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Upload Merchant Data - {selectedForm?.name}</DialogTitle>
+            <DialogDescription>
+              Upload an Excel file with merchant data and assign to a Lead Assigner
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-medium mb-2">Expected Excel Columns:</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                <span>• Merchant Name</span>
+                <span>• Merchant Phone Number</span>
+                <span>• Merchant Address</span>
+                <span>• City</span>
+                <span>• State</span>
+                <span>• Pincode</span>
+                <span>• CPV Agent</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="merchant-file">Upload Merchant Excel File</Label>
+                <Input 
+                  id="merchant-file" 
+                  type="file" 
+                  accept=".xlsx,.xls" 
+                  onChange={handleFileChange}
+                />
+                {selectedFile && (
+                  <p className="text-sm text-muted-foreground">
+                    Selected: {selectedFile.name}
+                  </p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Assign Lead Assigner</Label>
+                <Select value={selectedLeadAssigner} onValueChange={setSelectedLeadAssigner}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Lead Assigner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lead1">Lead Assigner 1</SelectItem>
+                    <SelectItem value="lead2">Lead Assigner 2</SelectItem>
+                    <SelectItem value="lead3">Lead Assigner 3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowMerchantDetails(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUploadClick}
+                disabled={!selectedFile || !selectedLeadAssigner || uploading}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {uploading ? 'Uploading...' : 'Upload & Assign'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     )
   }
 

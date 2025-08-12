@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { AuthGate } from '@/components/AuthGate'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, FileText, Download } from 'lucide-react'
+import { ArrowLeft, Download, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 
@@ -18,11 +18,11 @@ interface MerchantData {
   city: string;
   state: string;
   pincode: string;
-  cpv_agent: string;
-  assigned_on: string | null;
+  cpv_agent?: string;
+  assigned_on?: string;
   uploaded_on: string;
   verification_status: string;
-  verification_file_url: string | null;
+  verification_file_url?: string;
 }
 
 interface CPVForm {
@@ -33,12 +33,12 @@ interface CPVForm {
 
 const MerchantDataView = () => {
   const { formId } = useParams<{ formId: string }>()
-  const { user } = useAuth()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { toast } = useToast()
   
   const [merchantData, setMerchantData] = useState<MerchantData[]>([])
-  const [cpvForm, setCpvForm] = useState<CPVForm | null>(null)
+  const [cpvForm, setCPVForm] = useState<CPVForm | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,7 +49,7 @@ const MerchantDataView = () => {
 
   const loadData = async () => {
     if (!formId || !user) return;
-
+    
     setLoading(true)
     try {
       // Load CPV form details
@@ -61,7 +61,7 @@ const MerchantDataView = () => {
         .single()
 
       if (formError) throw formError
-      setCpvForm(formData)
+      setCPVForm(formData)
 
       // Load merchant data
       const { data: merchantsData, error: merchantsError } = await supabase
@@ -87,53 +87,33 @@ const MerchantDataView = () => {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      'pending': { variant: 'outline' as const, className: 'bg-yellow-100 text-yellow-800' },
-      'in_progress': { variant: 'secondary' as const, className: 'bg-blue-100 text-blue-800' },
-      'completed': { variant: 'default' as const, className: 'bg-green-100 text-green-800' },
-      'rejected': { variant: 'destructive' as const, className: 'bg-red-100 text-red-800' }
+      'pending': { variant: 'secondary' as const, className: 'bg-yellow-500 text-white' },
+      'in_progress': { variant: 'default' as const, className: 'bg-blue-500 text-white' },
+      'completed': { variant: 'default' as const, className: 'bg-green-500 text-white' },
+      'rejected': { variant: 'destructive' as const, className: 'bg-red-500 text-white' }
     }
     
     const config = statusConfig[status as keyof typeof statusConfig] || { variant: 'outline' as const, className: '' }
     return <Badge variant={config.variant} className={config.className}>{status}</Badge>
   }
 
-  const handleDownloadFile = (fileUrl: string | null) => {
-    if (!fileUrl) return;
-    // This would normally trigger file download
-    toast({
-      title: 'Download',
-      description: 'File download would be triggered here',
-    })
+  const handleDownloadFile = (fileUrl?: string) => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank')
+    } else {
+      toast({
+        title: 'File not available',
+        description: 'Verification file will be available after CPV Agent completes the process',
+        variant: 'destructive',
+      })
+    }
   }
 
   if (loading) {
     return (
       <AuthGate>
-        <div className="min-h-screen bg-background">
-          <div className="container mx-auto px-4 py-8">
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          </div>
-        </div>
-      </AuthGate>
-    )
-  }
-
-  if (!cpvForm) {
-    return (
-      <AuthGate>
-        <div className="min-h-screen bg-background">
-          <div className="container mx-auto px-4 py-8">
-            <div className="text-center p-8">
-              <h2 className="text-xl font-semibold mb-2">Form Not Found</h2>
-              <p className="text-muted-foreground mb-4">The requested CPV form could not be found.</p>
-              <Button onClick={() => navigate('/cpv-merchant-status')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to CPV Merchant Status
-              </Button>
-            </div>
-          </div>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </AuthGate>
     )
@@ -154,32 +134,32 @@ const MerchantDataView = () => {
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to CPV Merchant Status
                 </Button>
-                <h1 className="text-3xl font-bold tracking-tight">Merchant Data View</h1>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  Merchant Data - {cpvForm?.name}
+                </h1>
                 <p className="text-muted-foreground">
-                  {cpvForm.name} - {cpvForm.initiative}
+                  Initiative: {cpvForm?.initiative} | Total Merchants: {merchantData.length}
                 </p>
               </div>
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle>Uploaded Merchants</CardTitle>
-                <CardDescription>
-                  View and manage merchant verification data for this CPV form
-                </CardDescription>
+                <CardTitle>Uploaded Merchant Data</CardTitle>
               </CardHeader>
               <CardContent>
                 {merchantData.length === 0 ? (
                   <div className="text-center p-8 text-muted-foreground">
-                    No merchant data uploaded yet. Use "More Details" to upload merchant data.
+                    No merchant data uploaded yet.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Sr. No</TableHead>
                           <TableHead>Merchant Name</TableHead>
-                          <TableHead>Phone</TableHead>
+                          <TableHead>Phone Number</TableHead>
                           <TableHead>Address</TableHead>
                           <TableHead>City</TableHead>
                           <TableHead>State</TableHead>
@@ -192,35 +172,31 @@ const MerchantDataView = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {merchantData.map((merchant) => (
+                        {merchantData.map((merchant, index) => (
                           <TableRow key={merchant.id}>
+                            <TableCell>{index + 1}</TableCell>
                             <TableCell className="font-medium">{merchant.merchant_name}</TableCell>
                             <TableCell>{merchant.merchant_phone}</TableCell>
-                            <TableCell>{merchant.merchant_address}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{merchant.merchant_address}</TableCell>
                             <TableCell>{merchant.city}</TableCell>
                             <TableCell>{merchant.state}</TableCell>
                             <TableCell>{merchant.pincode}</TableCell>
-                            <TableCell>{merchant.cpv_agent}</TableCell>
+                            <TableCell>{merchant.cpv_agent || 'Not Assigned'}</TableCell>
                             <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
                             <TableCell>{new Date(merchant.uploaded_on).toLocaleDateString()}</TableCell>
                             <TableCell>
-                              {merchant.assigned_on 
-                                ? new Date(merchant.assigned_on).toLocaleDateString() 
-                                : '-'
-                              }
+                              {merchant.assigned_on ? new Date(merchant.assigned_on).toLocaleDateString() : 'Not Assigned'}
                             </TableCell>
                             <TableCell>
-                              {merchant.verification_status === 'completed' && merchant.verification_file_url ? (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleDownloadFile(merchant.verification_file_url)}
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                              ) : (
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownloadFile(merchant.verification_file_url)}
+                                disabled={!merchant.verification_file_url}
+                                className={merchant.verification_file_url ? 'text-primary hover:text-primary/80' : 'text-muted-foreground cursor-not-allowed'}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
