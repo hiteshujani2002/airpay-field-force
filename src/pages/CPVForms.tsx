@@ -319,7 +319,10 @@ const CPVForms = () => {
         name: `CPV Form ${Date.now()}`,
         initiative: selectedInitiative,
         sections: allSections as any,
-        user_id: user.id
+        user_id: user.id,
+        status: 'active',
+        current_status: 'draft',
+        form_preview_data: allSections as any
       };
 
       console.log('Form data being saved:', formData);

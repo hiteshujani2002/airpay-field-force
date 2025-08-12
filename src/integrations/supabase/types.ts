@@ -16,29 +16,44 @@ export type Database = {
     Tables: {
       cpv_forms: {
         Row: {
+          assigned_lead_assigner_id: string | null
           created_at: string | null
+          current_status: string | null
+          form_preview_data: Json | null
           id: string
           initiative: string
+          merchants_data: Json | null
           name: string
           sections: Json
+          status: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          assigned_lead_assigner_id?: string | null
           created_at?: string | null
+          current_status?: string | null
+          form_preview_data?: Json | null
           id?: string
           initiative: string
+          merchants_data?: Json | null
           name: string
           sections?: Json
+          status?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          assigned_lead_assigner_id?: string | null
           created_at?: string | null
+          current_status?: string | null
+          form_preview_data?: Json | null
           id?: string
           initiative?: string
+          merchants_data?: Json | null
           name?: string
           sections?: Json
+          status?: string | null
           updated_at?: string | null
           user_id?: string | null
         }

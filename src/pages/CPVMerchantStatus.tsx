@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
 import { AuthGate } from '@/components/AuthGate'
@@ -11,159 +11,344 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Eye, MoreHorizontal, Download, Upload, FileText, CheckCircle, XCircle, Clock, ArrowLeft } from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
+import { Eye, MoreHorizontal, Download, Upload, FileText, CheckCircle, XCircle, Clock, ArrowLeft, X } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/integrations/supabase/client'
 
-// Dummy data for demonstration
-const dummyCPVForms = [
-  {
-    id: 1,
-    name: "E-commerce Verification Form",
-    createdOn: "2024-01-15",
-    currentStatus: "Active",
-    initiative: "E-commerce",
-    company: "TechCorp Solutions"
-  },
-  {
-    id: 2,
-    name: "Banking KYC Form",
-    createdOn: "2024-01-18",
-    currentStatus: "Inactive",
-    initiative: "Banking",
-    company: "FinanceMax Ltd"
-  },
-  {
-    id: 3,
-    name: "Insurance Verification",
-    createdOn: "2024-01-22",
-    currentStatus: "Active",
-    initiative: "Insurance",
-    company: "InsureAll Inc"
-  }
-]
+interface CPVForm {
+  id: string;
+  name: string;
+  created_at: string;
+  status: string;
+  current_status: string;
+  initiative: string;
+  sections: any[];
+  form_preview_data?: any;
+  merchants_data?: any[];
+  assigned_lead_assigner_id?: string;
+}
 
-const dummyMerchants = [
-  {
-    id: 1,
-    merchantName: "ABC Electronics",
-    assignedAgent: "John Doe",
-    status: "Completed",
-    dateAssigned: "2024-01-20",
-    completedDate: "2024-01-25",
-    hasFile: true
-  },
-  {
-    id: 2,
-    merchantName: "XYZ Fashion",
-    assignedAgent: "Jane Smith",
-    status: "Pending",
-    dateAssigned: "2024-01-23",
-    completedDate: null,
-    hasFile: false
-  },
-  {
-    id: 3,
-    merchantName: "Tech Solutions Inc",
-    assignedAgent: "Not Assigned",
-    status: "Failed",
-    dateAssigned: "2024-01-18",
-    completedDate: null,
-    hasFile: false
-  }
-]
+interface FormSection {
+  id: string;
+  name: string;
+  fields: CustomField[];
+}
 
-const dummyLeads = [
-  {
-    id: 1,
-    merchantName: "ABC Electronics",
-    contactPerson: "Raj Kumar",
-    phone: "+91 9876543210",
-    email: "raj@abcelec.com",
-    status: "Assigned",
-    assignedAgent: "John Doe",
-    priority: "High"
-  },
-  {
-    id: 2,
-    merchantName: "XYZ Fashion",
-    contactPerson: "Priya Sharma",
-    phone: "+91 9876543211",
-    email: "priya@xyzfashion.com",
-    status: "Yet to be assigned",
-    assignedAgent: null,
-    priority: "Medium"
-  },
-  {
-    id: 3,
-    merchantName: "Tech Solutions Inc",
-    contactPerson: "Amit Singh",
-    phone: "+91 9876543212",
-    email: "amit@techsol.com",
-    status: "Completed",
-    assignedAgent: "Sarah Wilson",
-    priority: "Low"
-  }
-]
-
-const dummyAgents = ["John Doe", "Jane Smith", "Sarah Wilson", "Mike Johnson", "Lisa Chen"]
+interface CustomField {
+  id: string;
+  title: string;
+  dataType: "alphabets" | "numbers" | "alphanumeric";
+  mandatory: boolean;
+  visible: boolean;
+  type: "text" | "image";
+  numberOfClicks?: number;
+  documentName?: string;
+}
 
 type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent'
 
 const CPVMerchantStatus = () => {
-  const { userRole } = useAuth()
+  const { userRole, user } = useAuth()
   const navigate = useNavigate()
+  const { toast } = useToast()
   
-  console.log('CPVMerchantStatus - Current user role:', userRole)
-  const [selectedForm, setSelectedForm] = useState<any>(null)
-  const [showMerchants, setShowMerchants] = useState(false)
+  const [cpvForms, setCPVForms] = useState<CPVForm[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedForm, setSelectedForm] = useState<CPVForm | null>(null)
+  const [showFormPreview, setShowFormPreview] = useState(false)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
-  const [selectedMerchant, setSelectedMerchant] = useState<any>(null)
-  const [showAssignDialog, setShowAssignDialog] = useState(false)
-  const [selectedAgent, setSelectedAgent] = useState("")
+  const [selectedFormForStatus, setSelectedFormForStatus] = useState<CPVForm | null>(null)
+  const [showMerchantDetails, setShowMerchantDetails] = useState(false)
 
-  const handleStatusChange = (formId: number, newStatus: string) => {
-    toast({
-      title: "Status Updated",
-      description: `Form status changed to ${newStatus}`,
-    })
-    setShowStatusDialog(false)
-  }
+  // Load CPV forms from Supabase
+  useEffect(() => {
+    loadCPVForms()
+  }, [user])
 
-  const handleAgentAssignment = () => {
-    if (selectedAgent && selectedMerchant) {
+  const loadCPVForms = async () => {
+    if (!user) return;
+    
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('cpv_forms')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      const transformedForms: CPVForm[] = data.map(form => ({
+        id: form.id,
+        name: form.name,
+        created_at: form.created_at,
+        status: form.status || 'active',
+        current_status: form.current_status || 'draft',
+        initiative: form.initiative,
+        sections: Array.isArray(form.sections) ? form.sections : [],
+        form_preview_data: form.form_preview_data,
+        merchants_data: Array.isArray(form.merchants_data) ? form.merchants_data : [],
+        assigned_lead_assigner_id: form.assigned_lead_assigner_id
+      }))
+
+      setCPVForms(transformedForms)
+    } catch (error: any) {
+      console.error('Error loading CPV forms:', error)
       toast({
-        title: "Agent Assigned",
-        description: `${selectedAgent} has been assigned to ${selectedMerchant.merchantName}`,
+        title: 'Error',
+        description: 'Failed to load CPV forms',
+        variant: 'destructive',
       })
-      setShowAssignDialog(false)
-      setSelectedAgent("")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleFileUpload = () => {
-    toast({
-      title: "File Uploaded",
-      description: "Merchant data has been uploaded successfully",
-    })
+  const handleViewForm = (form: CPVForm) => {
+    setSelectedForm(form)
+    setShowFormPreview(true)
+  }
+
+  const handleMoreDetails = (form: CPVForm) => {
+    setSelectedForm(form)
+    setShowMerchantDetails(true)
+  }
+
+  const handleStatusChange = async (form: CPVForm, newStatus: 'active' | 'inactive') => {
+    try {
+      const { error } = await supabase
+        .from('cpv_forms')
+        .update({ status: newStatus })
+        .eq('id', form.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Status Updated",
+        description: `Form status changed to ${newStatus}`,
+      })
+
+      // Update local state
+      setCPVForms(forms => 
+        forms.map(f => 
+          f.id === form.id ? { ...f, status: newStatus } : f
+        )
+      )
+      
+      setShowStatusDialog(false)
+      setSelectedFormForStatus(null)
+    } catch (error: any) {
+      console.error('Error updating status:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update form status',
+        variant: 'destructive',
+      })
+    }
   }
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      'Active': { variant: 'default' as const, className: 'bg-green-500' },
-      'Inactive': { variant: 'secondary' as const, className: 'bg-gray-500' },
-      'Completed': { variant: 'default' as const, className: 'bg-green-500' },
-      'Pending': { variant: 'secondary' as const, className: 'bg-yellow-500' },
-      'Failed': { variant: 'destructive' as const, className: 'bg-red-500' },
-      'Assigned': { variant: 'default' as const, className: 'bg-blue-500' },
-      'Yet to be assigned': { variant: 'outline' as const, className: 'bg-gray-100' }
+      'active': { variant: 'default' as const, className: 'bg-green-500 text-white' },
+      'inactive': { variant: 'secondary' as const, className: 'bg-gray-500 text-white' },
+      'draft': { variant: 'outline' as const, className: 'bg-gray-100' },
+      'submitted': { variant: 'default' as const, className: 'bg-blue-500 text-white' },
+      'under_review': { variant: 'secondary' as const, className: 'bg-yellow-500 text-white' },
+      'approved': { variant: 'default' as const, className: 'bg-green-500 text-white' },
+      'rejected': { variant: 'destructive' as const, className: 'bg-red-500 text-white' }
     }
     
     const config = statusConfig[status as keyof typeof statusConfig] || { variant: 'outline' as const, className: '' }
     return <Badge variant={config.variant} className={config.className}>{status}</Badge>
   }
 
-  // Client Admin & Super Admin View
-  const renderAdminView = () => (
+  const renderFormField = (field: CustomField) => {
+    if (!field.visible) return null;
+
+    const baseClasses = "w-full p-2 border rounded-md bg-gray-50"
+    
+    if (field.type === "image") {
+      return (
+        <div key={field.id} className="space-y-2">
+          <Label className="text-sm font-medium">
+            {field.title}
+            {field.mandatory && <span className="text-red-500 ml-1">*</span>}
+          </Label>
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+            <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500">Click to upload {field.documentName || field.title}</p>
+            <p className="text-xs text-gray-400">Maximum {field.numberOfClicks || 1} image(s)</p>
+          </div>
+        </div>
+      )
+    }
+
+    // Special rendering for business fields
+    if (field.title === "Address Confirmed") {
+      return (
+        <div key={field.id} className="space-y-2">
+          <Label className="text-sm font-medium">
+            {field.title}
+            {field.mandatory && <span className="text-red-500 ml-1">*</span>}
+          </Label>
+          <div className="flex gap-4">
+            <label className="flex items-center space-x-2">
+              <input type="radio" name={field.id} disabled className="text-primary" />
+              <span>Yes</span>
+            </label>
+            <label className="flex items-center space-x-2">
+              <input type="radio" name={field.id} disabled className="text-primary" />
+              <span>No</span>
+            </label>
+          </div>
+        </div>
+      )
+    }
+
+    if (["Nature of Business", "Type of business", "Office Ownership"].includes(field.title)) {
+      return (
+        <div key={field.id} className="space-y-2">
+          <Label className="text-sm font-medium">
+            {field.title}
+            {field.mandatory && <span className="text-red-500 ml-1">*</span>}
+          </Label>
+          <select disabled className={baseClasses}>
+            <option>Select {field.title.toLowerCase()}</option>
+          </select>
+        </div>
+      )
+    }
+
+    return (
+      <div key={field.id} className="space-y-2">
+        <Label className="text-sm font-medium">
+          {field.title}
+          {field.mandatory && <span className="text-red-500 ml-1">*</span>}
+        </Label>
+        <input
+          type="text"
+          disabled
+          placeholder={`Enter ${field.title.toLowerCase()}`}
+          className={baseClasses}
+        />
+      </div>
+    )
+  }
+
+  const renderFormPreview = () => {
+    if (!selectedForm) return null;
+
+    return (
+      <Dialog open={showFormPreview} onOpenChange={setShowFormPreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              {selectedForm.name} - Form Preview
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFormPreview(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+            <DialogDescription>
+              Initiative: {selectedForm.initiative} | Created: {new Date(selectedForm.created_at).toLocaleDateString()}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {selectedForm.sections.map((section: FormSection) => (
+              <Card key={section.id} className="border border-gray-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">{section.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {section.fields.map(renderFormField)}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  const renderStatusChangeDialog = () => {
+    return (
+      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Form Status</DialogTitle>
+            <DialogDescription>
+              Update the status of {selectedFormForStatus?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <Button 
+                onClick={() => selectedFormForStatus && handleStatusChange(selectedFormForStatus, 'active')}
+                variant={selectedFormForStatus?.status === 'active' ? 'default' : 'outline'}
+                className="flex-1"
+              >
+                Active
+              </Button>
+              <Button 
+                onClick={() => selectedFormForStatus && handleStatusChange(selectedFormForStatus, 'inactive')}
+                variant={selectedFormForStatus?.status === 'inactive' ? 'default' : 'outline'}
+                className="flex-1"
+              >
+                Inactive
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  const renderMerchantDetailsDialog = () => {
+    return (
+      <Dialog open={showMerchantDetails} onOpenChange={setShowMerchantDetails}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Merchant Management - {selectedForm?.name}</DialogTitle>
+            <DialogDescription>Upload merchants and assign Lead Assigners</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="flex gap-4 items-end">
+              <div className="space-y-2 flex-1">
+                <Label htmlFor="merchant-file">Upload Merchant Excel File</Label>
+                <Input id="merchant-file" type="file" accept=".xlsx,.xls" />
+              </div>
+              <div className="space-y-2 flex-1">
+                <Label>Assign Lead Assigner</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Lead Assigner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lead1">Lead Assigner 1</SelectItem>
+                    <SelectItem value="lead2">Lead Assigner 2</SelectItem>
+                    <SelectItem value="lead3">Lead Assigner 3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload & Assign
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  // Client Admin View
+  const renderClientAdminView = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
@@ -182,495 +367,103 @@ const CPVMerchantStatus = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>CPV Forms Overview</CardTitle>
+          <CardTitle>Your CPV Forms</CardTitle>
           <CardDescription>
-            {userRole === 'super_admin' ? 'All CPV forms across companies' : 'Your CPV forms'}
+            View and manage your created CPV forms
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sr. No</TableHead>
-                <TableHead>CPV Form</TableHead>
-                <TableHead>Created On</TableHead>
-                <TableHead>Current Status</TableHead>
-                <TableHead>Initiative</TableHead>
-                {userRole === 'super_admin' && <TableHead>Company</TableHead>}
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dummyCPVForms.map((form, index) => (
-                <TableRow key={form.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell className="font-medium">{form.name}</TableCell>
-                  <TableCell>{form.createdOn}</TableCell>
-                  <TableCell>{getStatusBadge(form.currentStatus)}</TableCell>
-                  <TableCell>{form.initiative}</TableCell>
-                  {userRole === 'super_admin' && <TableCell>{form.company}</TableCell>}
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4 mr-1" />
-                            View Form
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>{form.name}</DialogTitle>
-                            <DialogDescription>Form preview</DialogDescription>
-                          </DialogHeader>
-                          <div className="p-4 bg-muted rounded-lg">
-                            <p>Form preview content would be displayed here...</p>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedForm(form)
-                          setShowMerchants(true)
-                        }}
-                      >
-                        <MoreHorizontal className="h-4 w-4 mr-1" />
-                        More Details
-                      </Button>
-                      
-                      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            Change Status
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Change Form Status</DialogTitle>
-                            <DialogDescription>
-                              Update the status of {form.name}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="flex gap-4">
-                              <Button 
-                                onClick={() => handleStatusChange(form.id, 'Active')}
-                                variant={form.currentStatus === 'Active' ? 'default' : 'outline'}
-                              >
-                                Active
-                              </Button>
-                              <Button 
-                                onClick={() => handleStatusChange(form.id, 'Inactive')}
-                                variant={form.currentStatus === 'Inactive' ? 'default' : 'outline'}
-                              >
-                                Inactive
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </TableCell>
+          {loading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : cpvForms.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              No CPV forms found. Create your first form to get started.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sr. No</TableHead>
+                  <TableHead>CPV Form</TableHead>
+                  <TableHead>Created On</TableHead>
+                  <TableHead>Current Status</TableHead>
+                  <TableHead>Initiative</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {showMerchants && selectedForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Merchant Management - {selectedForm.name}</CardTitle>
-            <CardDescription>Upload merchants and assign Lead Assigners</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="merchant-file">Upload Merchant Excel File</Label>
-                <Input id="merchant-file" type="file" accept=".xlsx,.xls" />
-              </div>
-              <div className="space-y-2">
-                <Label>Assign Lead Assigner</Label>
-                <Select>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Select Lead Assigner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lead1">Lead Assigner 1</SelectItem>
-                    <SelectItem value="lead2">Lead Assigner 2</SelectItem>
-                    <SelectItem value="lead3">Lead Assigner 3</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={handleFileUpload} className="mt-6">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload & Assign
-              </Button>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Merchant Status</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Merchant Name</TableHead>
-                    <TableHead>Assigned Agent</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date Assigned</TableHead>
-                    <TableHead>Completed Date</TableHead>
-                    <TableHead>File</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dummyMerchants.map((merchant) => (
-                    <TableRow key={merchant.id}>
-                      <TableCell className="font-medium">{merchant.merchantName}</TableCell>
-                      <TableCell>{merchant.assignedAgent}</TableCell>
-                      <TableCell>{getStatusBadge(merchant.status)}</TableCell>
-                      <TableCell>{merchant.dateAssigned}</TableCell>
-                      <TableCell>{merchant.completedDate || '-'}</TableCell>
-                      <TableCell>
-                        {merchant.hasFile ? (
-                          <Button variant="outline" size="sm">
-                            <FileText className="h-4 w-4 mr-1" />
-                            View File
-                          </Button>
-                        ) : (
-                          <span className="text-muted-foreground">No file</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
-
-  // Lead Assigner View
-  const renderLeadAssignerView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/dashboard')}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">CPV Forms - Lead Management</h1>
-          <p className="text-muted-foreground">Manage assigned CPV forms and delegate to agents</p>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Assigned CPV Forms</CardTitle>
-          <CardDescription>Forms assigned to you for lead management</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sr. No</TableHead>
-                <TableHead>CPV Form</TableHead>
-                <TableHead>Initiative</TableHead>
-                <TableHead>Created On</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dummyCPVForms.slice(0, 2).map((form, index) => (
-                <TableRow key={form.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell className="font-medium">{form.name}</TableCell>
-                  <TableCell>{form.initiative}</TableCell>
-                  <TableCell>{form.createdOn}</TableCell>
-                  <TableCell>{getStatusBadge(form.currentStatus)}</TableCell>
-                  <TableCell>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setSelectedForm(form)
-                        setShowMerchants(true)
-                      }}
-                    >
-                      <MoreHorizontal className="h-4 w-4 mr-1" />
-                      More Details
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {showMerchants && selectedForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Leads Management - {selectedForm.name}</CardTitle>
-            <CardDescription>Assign CPV agents to merchant leads</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex gap-4">
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Download Leads Data
-              </Button>
-              <div className="space-y-2">
-                <Input type="file" accept=".xlsx,.xls" placeholder="Upload Agent Assignment File" />
-              </div>
-              <Button>
-                <Upload className="h-4 w-4 mr-2" />
-                Assign CPV Agents
-              </Button>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Leads Status</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Merchant Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Assigned Agent</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dummyLeads.map((lead) => (
-                    <TableRow key={lead.id}>
-                      <TableCell className="font-medium">{lead.merchantName}</TableCell>
-                      <TableCell>{lead.contactPerson}</TableCell>
-                      <TableCell>{lead.phone}</TableCell>
-                      <TableCell>{lead.email}</TableCell>
-                      <TableCell>{getStatusBadge(lead.status)}</TableCell>
-                      <TableCell>{lead.assignedAgent || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={lead.priority === 'High' ? 'destructive' : lead.priority === 'Medium' ? 'default' : 'secondary'}>
-                          {lead.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {lead.status === "Yet to be assigned" && (
-                          <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => setSelectedMerchant(lead)}
-                              >
-                                Assign Agent
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Assign CPV Agent</DialogTitle>
-                                <DialogDescription>
-                                  Select an agent for {selectedMerchant?.merchantName}
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <Label>Select CPV Agent</Label>
-                                  <Select value={selectedAgent} onValueChange={setSelectedAgent}>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Choose an agent" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {dummyAgents.map((agent) => (
-                                        <SelectItem key={agent} value={agent}>
-                                          {agent}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <Button onClick={handleAgentAssignment} className="w-full">
-                                  Assign Agent
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  )
-
-  // CPV Agent View
-  const renderCPVAgentView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/dashboard')}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">CPV Agent Dashboard</h1>
-          <p className="text-muted-foreground">Manage your assigned verification tasks</p>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>My CPV Tasks</CardTitle>
-          <CardDescription>Track and manage your verification assignments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="pending" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="pending">Pending Leads</TabsTrigger>
-              <TabsTrigger value="completed">Completed Leads</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected Leads</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="pending" className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Merchant Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Date Assigned</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dummyLeads.filter(lead => lead.status === "Assigned").map((lead) => (
-                    <TableRow key={lead.id}>
-                      <TableCell className="font-medium">{lead.merchantName}</TableCell>
-                      <TableCell>{lead.contactPerson}</TableCell>
-                      <TableCell>{lead.phone}</TableCell>
-                      <TableCell>{lead.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={lead.priority === 'High' ? 'destructive' : lead.priority === 'Medium' ? 'default' : 'secondary'}>
-                          {lead.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>2024-01-20</TableCell>
-                      <TableCell>
-                        <Button size="sm" onClick={() => toast({ title: "CPV Started", description: "Verification process initiated" })}>
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Complete CPV
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TabsContent>
-
-            <TabsContent value="completed" className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Merchant Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Completed Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Form</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dummyLeads.filter(lead => lead.status === "Completed").map((lead) => (
-                    <TableRow key={lead.id}>
-                      <TableCell className="font-medium">{lead.merchantName}</TableCell>
-                      <TableCell>{lead.contactPerson}</TableCell>
-                      <TableCell>2024-01-25</TableCell>
-                      <TableCell>{getStatusBadge("Completed")}</TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm">
-                          <FileText className="h-4 w-4 mr-1" />
+              </TableHeader>
+              <TableBody>
+                {cpvForms.map((form, index) => (
+                  <TableRow key={form.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell className="font-medium">{form.name}</TableCell>
+                    <TableCell>{new Date(form.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{getStatusBadge(form.status)}</TableCell>
+                    <TableCell>{form.initiative}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewForm(form)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
                           View Form
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TabsContent>
-
-            <TabsContent value="rejected" className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Merchant Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Rejection Date</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No rejected leads found
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleMoreDetails(form)}
+                        >
+                          <MoreHorizontal className="h-4 w-4 mr-1" />
+                          More Details
+                        </Button>
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedFormForStatus(form)
+                            setShowStatusDialog(true)
+                          }}
+                        >
+                          Change Status
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
-                </TableBody>
-              </Table>
-            </TabsContent>
-          </Tabs>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
   )
 
-  const renderContent = () => {
-    console.log('CPVMerchantStatus - renderContent called with userRole:', userRole)
-    
-    if (!userRole) {
-      console.log('No userRole found, showing loading...')
-      return <div>Loading...</div>
-    }
+  const renderSuperAdminView = () => renderClientAdminView()
+  const renderLeadAssignerView = () => renderClientAdminView()
+  const renderCPVAgentView = () => renderClientAdminView()
 
-    console.log('Rendering view for role:', userRole)
+  const renderContent = () => {
     switch (userRole) {
-      case 'super_admin':
-        console.log('Rendering Super Admin view')
-        return renderAdminView()
       case 'client_admin':
-        console.log('Rendering Client Admin view')
-        return renderAdminView()
+        return renderClientAdminView()
+      case 'super_admin':
+        return renderSuperAdminView()
       case 'lead_assigner':
-        console.log('Rendering Lead Assigner view')
         return renderLeadAssignerView()
       case 'cpv_agent':
-        console.log('Rendering CPV Agent view')
         return renderCPVAgentView()
       default:
-        console.log('Unknown role, denying access:', userRole)
-        return <div>Access denied</div>
+        return (
+          <div className="text-center p-8">
+            <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground">You don't have permission to access this module.</p>
+          </div>
+        )
     }
   }
 
@@ -679,6 +472,9 @@ const CPVMerchantStatus = () => {
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           {renderContent()}
+          {renderFormPreview()}
+          {renderStatusChangeDialog()}
+          {renderMerchantDetailsDialog()}
         </div>
       </div>
     </AuthGate>
