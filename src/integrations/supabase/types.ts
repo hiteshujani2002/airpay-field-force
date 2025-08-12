@@ -59,6 +59,66 @@ export type Database = {
         }
         Relationships: []
       }
+      cpv_merchant_status: {
+        Row: {
+          assigned_lead_assigner_id: string | null
+          assigned_on: string | null
+          city: string
+          cpv_agent: string | null
+          cpv_form_id: string
+          created_at: string
+          id: string
+          merchant_address: string
+          merchant_name: string
+          merchant_phone: string
+          pincode: string
+          state: string
+          updated_at: string
+          uploaded_by_user_id: string
+          uploaded_on: string
+          verification_file_url: string | null
+          verification_status: string | null
+        }
+        Insert: {
+          assigned_lead_assigner_id?: string | null
+          assigned_on?: string | null
+          city: string
+          cpv_agent?: string | null
+          cpv_form_id: string
+          created_at?: string
+          id?: string
+          merchant_address: string
+          merchant_name: string
+          merchant_phone: string
+          pincode: string
+          state: string
+          updated_at?: string
+          uploaded_by_user_id: string
+          uploaded_on?: string
+          verification_file_url?: string | null
+          verification_status?: string | null
+        }
+        Update: {
+          assigned_lead_assigner_id?: string | null
+          assigned_on?: string | null
+          city?: string
+          cpv_agent?: string | null
+          cpv_form_id?: string
+          created_at?: string
+          id?: string
+          merchant_address?: string
+          merchant_name?: string
+          merchant_phone?: string
+          pincode?: string
+          state?: string
+          updated_at?: string
+          uploaded_by_user_id?: string
+          uploaded_on?: string
+          verification_file_url?: string | null
+          verification_status?: string | null
+        }
+        Relationships: []
+      }
       entities: {
         Row: {
           address_line1: string | null

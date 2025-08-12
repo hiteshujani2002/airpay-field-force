@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import EntityOnboarding from "./pages/EntityOnboarding";
 import CPVForms from "./pages/CPVForms";
 import CPVMerchantStatus from "./pages/CPVMerchantStatus";
+import MerchantDataView from "./pages/MerchantDataView";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
@@ -27,6 +28,8 @@ const App = () => (
             <Route path="/entity-onboarding" element={<EntityOnboarding />} />
             <Route path="/dashboard/create-forms" element={<CPVForms />} />
             <Route path="/dashboard/merchant-status" element={<CPVMerchantStatus />} />
+            <Route path="/cpv-merchant-status" element={<CPVMerchantStatus />} />
+            <Route path="/merchant-data/:formId" element={<MerchantDataView />} />
             <Route path="/dashboard/user-management" element={<UserManagement />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

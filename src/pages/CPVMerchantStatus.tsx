@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Eye, MoreHorizontal, Download, Upload, FileText, CheckCircle, XCircle, Clock, ArrowLeft, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
+import MerchantUploadDialog from '@/components/MerchantUploadDialog'
 
 interface CPVForm {
   id: string;
@@ -112,6 +113,75 @@ const CPVMerchantStatus = () => {
   const handleMoreDetails = (form: CPVForm) => {
     setSelectedForm(form)
     setShowMerchantDetails(true)
+  }
+
+  const handleUploadAndAssign = async (file: File, leadAssignerId: string) => {
+    if (!selectedForm || !user) return;
+
+    try {
+      // Parse Excel file
+      const XLSX = await import('xlsx')
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data, { type: 'array' })
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
+
+      // Validate required columns
+      const requiredColumns = ['Merchant Name', 'Merchant Phone Number', 'Merchant Address', 'City', 'State', 'Pincode', 'CPV Agent']
+      const firstRow = jsonData[0] || {}
+      const missingColumns = requiredColumns.filter(col => !(col in firstRow))
+      
+      if (missingColumns.length > 0) {
+        toast({
+          title: 'Invalid Excel Format',
+          description: `Missing columns: ${missingColumns.join(', ')}`,
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Prepare merchant data for insertion
+      const merchantRecords = jsonData.map(row => ({
+        cpv_form_id: selectedForm.id,
+        merchant_name: row['Merchant Name'],
+        merchant_phone: row['Merchant Phone Number'],
+        merchant_address: row['Merchant Address'],
+        city: row['City'],
+        state: row['State'],
+        pincode: row['Pincode'],
+        cpv_agent: row['CPV Agent'],
+        assigned_lead_assigner_id: leadAssignerId,
+        uploaded_by_user_id: user.id,
+        assigned_on: new Date().toISOString(),
+        verification_status: 'pending'
+      }))
+
+      // Insert into Supabase
+      const { error } = await supabase
+        .from('cpv_merchant_status')
+        .insert(merchantRecords)
+
+      if (error) throw error
+
+      toast({
+        title: 'Success',
+        description: `${merchantRecords.length} merchants uploaded and assigned successfully`,
+      })
+
+      setShowMerchantDetails(false)
+      
+      // Redirect to merchant data view
+      navigate(`/merchant-data/${selectedForm.id}`)
+
+    } catch (error: any) {
+      console.error('Error uploading merchants:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to upload merchant data',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleStatusChange = async (form: CPVForm, newStatus: 'active' | 'inactive') => {
@@ -311,39 +381,12 @@ const CPVMerchantStatus = () => {
 
   const renderMerchantDetailsDialog = () => {
     return (
-      <Dialog open={showMerchantDetails} onOpenChange={setShowMerchantDetails}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Merchant Management - {selectedForm?.name}</DialogTitle>
-            <DialogDescription>Upload merchants and assign Lead Assigners</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div className="flex gap-4 items-end">
-              <div className="space-y-2 flex-1">
-                <Label htmlFor="merchant-file">Upload Merchant Excel File</Label>
-                <Input id="merchant-file" type="file" accept=".xlsx,.xls" />
-              </div>
-              <div className="space-y-2 flex-1">
-                <Label>Assign Lead Assigner</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Lead Assigner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lead1">Lead Assigner 1</SelectItem>
-                    <SelectItem value="lead2">Lead Assigner 2</SelectItem>
-                    <SelectItem value="lead3">Lead Assigner 3</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button>
-                <Upload className="h-4 w-4 mr-2" />
-                Upload & Assign
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <MerchantUploadDialog
+        open={showMerchantDetails}
+        onOpenChange={setShowMerchantDetails}
+        onUpload={handleUploadAndAssign}
+        formName={selectedForm?.name}
+      />
     )
   }
 
