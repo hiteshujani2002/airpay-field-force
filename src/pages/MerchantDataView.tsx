@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Download, FileText } from 'lucide-react'
+import { ArrowLeft, Upload, Users, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
+import MerchantDataDialog from '@/components/MerchantDataDialog'
+import * as XLSX from 'xlsx'
 
 interface MerchantData {
   id: string;
@@ -18,6 +20,7 @@ interface MerchantData {
   city: string;
   state: string;
   pincode: string;
+  assigned_lead_assigner_id?: string;
   cpv_agent?: string;
   assigned_on?: string;
   uploaded_on: string;
@@ -40,6 +43,8 @@ const MerchantDataView = () => {
   const [merchantData, setMerchantData] = useState<MerchantData[]>([])
   const [cpvForm, setCPVForm] = useState<CPVForm | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [showReassignDialog, setShowReassignDialog] = useState(false)
 
   useEffect(() => {
     if (formId && user) {
@@ -97,6 +102,15 @@ const MerchantDataView = () => {
     return <Badge variant={config.variant} className={config.className}>{status}</Badge>
   }
 
+  const getLeadAssignerName = (leadAssignerId?: string) => {
+    const leadAssigners: { [key: string]: string } = {
+      '550e8400-e29b-41d4-a716-446655440001': 'Lead Assigner 1',
+      '550e8400-e29b-41d4-a716-446655440002': 'Lead Assigner 2',
+      '550e8400-e29b-41d4-a716-446655440003': 'Lead Assigner 3'
+    }
+    return leadAssignerId ? (leadAssigners[leadAssignerId] || 'Unknown') : 'Not Assigned'
+  }
+
   const handleDownloadFile = (fileUrl?: string) => {
     if (fileUrl) {
       window.open(fileUrl, '_blank')
@@ -104,6 +118,132 @@ const MerchantDataView = () => {
       toast({
         title: 'File not available',
         description: 'Verification file will be available after CPV Agent completes the process',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const parseExcelFile = (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result
+          const workbook = XLSX.read(data, { type: 'binary' })
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet)
+          resolve(jsonData)
+        } catch (error) {
+          reject(error)
+        }
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsBinaryString(file)
+    })
+  }
+
+  const handleUploadData = async (file: File, leadAssignerId: string) => {
+    if (!user || !formId) return;
+
+    try {
+      const excelData = await parseExcelFile(file)
+      
+      if (!excelData || excelData.length === 0) {
+        toast({
+          title: 'Error',
+          description: 'Excel file is empty or invalid',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const merchantRecords = excelData.map((row: any) => ({
+        cpv_form_id: formId,
+        uploaded_by_user_id: user.id,
+        assigned_lead_assigner_id: leadAssignerId,
+        merchant_name: row['Merchant Name'] || '',
+        merchant_phone: row['Merchant Phone Number'] || '',
+        merchant_address: row['Merchant Address'] || '',
+        city: row['City'] || '',
+        state: row['State'] || '',
+        pincode: row['Pincode'] || '',
+        verification_status: 'pending'
+      }))
+
+      const { error } = await supabase
+        .from('cpv_merchant_status')
+        .insert(merchantRecords)
+
+      if (error) throw error
+
+      toast({
+        title: 'Success',
+        description: `${merchantRecords.length} merchants uploaded successfully`,
+      })
+
+      loadData() // Reload the data to show new entries
+    } catch (error: any) {
+      console.error('Error uploading data:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to upload merchant data',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleReassignData = async (file: File, leadAssignerId: string) => {
+    if (!user || !formId) return;
+
+    try {
+      const excelData = await parseExcelFile(file)
+      
+      if (!excelData || excelData.length === 0) {
+        toast({
+          title: 'Error',
+          description: 'Excel file is empty or invalid',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      let updatedCount = 0
+
+      // Process each row in the Excel file
+      for (const row of excelData) {
+        const merchantName = row['Merchant Name']
+        const merchantPhone = row['Merchant Phone Number']
+
+        if (merchantName && merchantPhone) {
+          // Find and update matching records
+          const { error } = await supabase
+            .from('cpv_merchant_status')
+            .update({ 
+              assigned_lead_assigner_id: leadAssignerId,
+              assigned_on: new Date().toISOString()
+            })
+            .eq('cpv_form_id', formId)
+            .eq('merchant_name', merchantName)
+            .eq('merchant_phone', merchantPhone)
+
+          if (!error) {
+            updatedCount++
+          }
+        }
+      }
+
+      toast({
+        title: 'Success',
+        description: `${updatedCount} merchants reassigned successfully`,
+      })
+
+      loadData() // Reload the data to show updates
+    } catch (error: any) {
+      console.error('Error reassigning data:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to reassign merchant data',
         variant: 'destructive',
       })
     }
@@ -141,6 +281,23 @@ const MerchantDataView = () => {
                   Initiative: {cpvForm?.initiative} | Total Merchants: {merchantData.length}
                 </p>
               </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowReassignDialog(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Reassign Lead Assigner
+                </Button>
+                <Button
+                  onClick={() => setShowUploadDialog(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload Data
+                </Button>
+              </div>
             </div>
 
             <Card>
@@ -164,6 +321,7 @@ const MerchantDataView = () => {
                           <TableHead>City</TableHead>
                           <TableHead>State</TableHead>
                           <TableHead>Pincode</TableHead>
+                          <TableHead>Lead Assigner</TableHead>
                           <TableHead>CPV Agent</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Uploaded On</TableHead>
@@ -181,6 +339,7 @@ const MerchantDataView = () => {
                             <TableCell>{merchant.city}</TableCell>
                             <TableCell>{merchant.state}</TableCell>
                             <TableCell>{merchant.pincode}</TableCell>
+                            <TableCell>{getLeadAssignerName(merchant.assigned_lead_assigner_id)}</TableCell>
                             <TableCell>{merchant.cpv_agent || 'Not Assigned'}</TableCell>
                             <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
                             <TableCell>{new Date(merchant.uploaded_on).toLocaleDateString()}</TableCell>
@@ -206,6 +365,24 @@ const MerchantDataView = () => {
                 )}
               </CardContent>
             </Card>
+
+            <MerchantDataDialog
+              open={showUploadDialog}
+              onOpenChange={setShowUploadDialog}
+              onSubmit={handleUploadData}
+              title="Upload Additional Data"
+              description="Upload new merchant data and assign to a Lead Assigner. This will add to existing data."
+              isReassign={false}
+            />
+
+            <MerchantDataDialog
+              open={showReassignDialog}
+              onOpenChange={setShowReassignDialog}
+              onSubmit={handleReassignData}
+              title="Reassign Lead Assigner"
+              description="Upload Excel file with merchant data to reassign to a new Lead Assigner. Matching records will be updated."
+              isReassign={true}
+            />
           </div>
         </div>
       </div>
