@@ -110,9 +110,33 @@ const CPVMerchantStatus = () => {
     setShowFormPreview(true)
   }
 
-  const handleMoreDetails = (form: CPVForm) => {
-    setSelectedForm(form)
-    setShowMerchantDetails(true)
+  const handleMoreDetails = async (form: CPVForm) => {
+    if (!user) return;
+    
+    try {
+      // Check if merchant data exists for this form
+      const { data: merchantData, error } = await supabase
+        .from('cpv_merchant_status')
+        .select('id')
+        .eq('cpv_form_id', form.id)
+        .limit(1)
+
+      if (error) throw error
+
+      if (merchantData && merchantData.length > 0) {
+        // Data exists, redirect to view
+        navigate(`/merchant-data/${form.id}`)
+      } else {
+        // No data exists, show upload dialog
+        setSelectedForm(form)
+        setShowMerchantDetails(true)
+      }
+    } catch (error: any) {
+      console.error('Error checking merchant data:', error)
+      // Fallback to showing upload dialog
+      setSelectedForm(form)
+      setShowMerchantDetails(true)
+    }
   }
 
   const handleUploadAndAssign = async (file: File, leadAssignerId: string) => {
