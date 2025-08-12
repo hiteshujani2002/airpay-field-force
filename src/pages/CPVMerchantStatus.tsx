@@ -116,14 +116,38 @@ const CPVMerchantStatus = () => {
   }
 
   const handleUploadAndAssign = async (file: File, leadAssignerId: string) => {
-    if (!selectedForm || !user) return;
+    console.log('=== UPLOAD DEBUG START ===')
+    if (!selectedForm || !user) {
+      console.log('Missing selectedForm or user:', { selectedForm, user })
+      return
+    }
 
     try {
       console.log('Starting Excel upload process...')
       console.log('Selected form:', selectedForm)
-      console.log('User:', user)
+      console.log('User:', { id: user.id, email: user.email })
       console.log('File:', file)
       console.log('Lead Assigner ID:', leadAssignerId)
+
+      // Verify user owns the form first
+      const { data: formOwnership, error: ownershipError } = await supabase
+        .from('cpv_forms')
+        .select('id, user_id, name')
+        .eq('id', selectedForm.id)
+        .eq('user_id', user.id)
+        .single()
+
+      console.log('Form ownership check:', { formOwnership, ownershipError })
+
+      if (ownershipError || !formOwnership) {
+        console.error('User does not own this form or form not found')
+        toast({
+          title: 'Access Denied',
+          description: 'You do not have permission to upload data to this form',
+          variant: 'destructive',
+        })
+        return
+      }
 
       // Parse Excel file
       const XLSX = await import('xlsx')
@@ -170,17 +194,47 @@ const CPVMerchantStatus = () => {
 
       console.log('Merchant records to insert:', merchantRecords)
 
-      // Insert into Supabase
+      // Verify we have at least one record
+      if (merchantRecords.length === 0) {
+        toast({
+          title: 'No Data',
+          description: 'No valid merchant data found in the Excel file',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Insert into Supabase with detailed error handling
+      console.log('Attempting to insert into Supabase...')
       const { data: insertedData, error } = await supabase
         .from('cpv_merchant_status')
         .insert(merchantRecords)
+        .select()
 
-      console.log('Supabase response:', { insertedData, error })
+      console.log('Supabase insert response:', { insertedData, error })
 
       if (error) {
         console.error('Supabase error details:', error)
+        
+        // Provide more specific error messages
+        let errorMessage = 'Failed to upload merchant data'
+        if (error.message.includes('row-level security')) {
+          errorMessage = 'Access denied: You do not have permission to upload data to this form'
+        } else if (error.message.includes('violates')) {
+          errorMessage = 'Data validation error: Please check your Excel file format'
+        } else if (error.message.includes('uuid')) {
+          errorMessage = 'Invalid Lead Assigner selection'
+        }
+        
+        toast({
+          title: 'Upload Failed',
+          description: errorMessage,
+          variant: 'destructive',
+        })
         throw error
       }
+
+      console.log('Upload successful! Inserted records:', insertedData)
 
       toast({
         title: 'Success',
