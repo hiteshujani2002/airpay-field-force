@@ -119,6 +119,12 @@ const CPVMerchantStatus = () => {
     if (!selectedForm || !user) return;
 
     try {
+      console.log('Starting Excel upload process...')
+      console.log('Selected form:', selectedForm)
+      console.log('User:', user)
+      console.log('File:', file)
+      console.log('Lead Assigner ID:', leadAssignerId)
+
       // Parse Excel file
       const XLSX = await import('xlsx')
       const data = await file.arrayBuffer()
@@ -127,10 +133,15 @@ const CPVMerchantStatus = () => {
       const worksheet = workbook.Sheets[sheetName]
       const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
 
+      console.log('Parsed Excel data:', jsonData)
+
       // Validate required columns
       const requiredColumns = ['Merchant Name', 'Merchant Phone Number', 'Merchant Address', 'City', 'State', 'Pincode']
       const firstRow = jsonData[0] || {}
       const missingColumns = requiredColumns.filter(col => !(col in firstRow))
+      
+      console.log('First row:', firstRow)
+      console.log('Missing columns:', missingColumns)
       
       if (missingColumns.length > 0) {
         toast({
@@ -157,12 +168,19 @@ const CPVMerchantStatus = () => {
         verification_status: 'pending'
       }))
 
+      console.log('Merchant records to insert:', merchantRecords)
+
       // Insert into Supabase
-      const { error } = await supabase
+      const { data: insertedData, error } = await supabase
         .from('cpv_merchant_status')
         .insert(merchantRecords)
 
-      if (error) throw error
+      console.log('Supabase response:', { insertedData, error })
+
+      if (error) {
+        console.error('Supabase error details:', error)
+        throw error
+      }
 
       toast({
         title: 'Success',
@@ -176,6 +194,12 @@ const CPVMerchantStatus = () => {
 
     } catch (error: any) {
       console.error('Error uploading merchants:', error)
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      })
       toast({
         title: 'Error',
         description: 'Failed to upload merchant data',
