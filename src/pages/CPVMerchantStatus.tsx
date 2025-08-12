@@ -128,7 +128,7 @@ const CPVMerchantStatus = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
 
       // Validate required columns
-      const requiredColumns = ['Merchant Name', 'Merchant Phone Number', 'Merchant Address', 'City', 'State', 'Pincode', 'CPV Agent']
+      const requiredColumns = ['Merchant Name', 'Merchant Phone Number', 'Merchant Address', 'City', 'State', 'Pincode']
       const firstRow = jsonData[0] || {}
       const missingColumns = requiredColumns.filter(col => !(col in firstRow))
       
@@ -150,7 +150,7 @@ const CPVMerchantStatus = () => {
         city: row['City'],
         state: row['State'],
         pincode: row['Pincode'],
-        cpv_agent: row['CPV Agent'],
+        cpv_agent: 'NA',
         assigned_lead_assigner_id: leadAssignerId,
         uploaded_by_user_id: user.id,
         assigned_on: new Date().toISOString(),
@@ -426,7 +426,7 @@ const CPVMerchantStatus = () => {
                 <span>• City</span>
                 <span>• State</span>
                 <span>• Pincode</span>
-                <span>• CPV Agent</span>
+                
               </div>
             </div>
 
