@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -12,76 +12,34 @@ import { useNavigate } from "react-router-dom";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserCreateDialog from "@/components/UserCreateDialog";
-import UserEditDialog from "@/components/UserEditDialog";
+// Remove UserEditDialog import as we'll create a custom one inline
 import UserProfileDialog from "@/components/UserProfileDialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Label } from "@/components/ui/label";
+
+type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent';
 
 interface User {
   id: string;
+  user_id: string;
   username: string;
-  role: "Client Admin" | "Lead Assigner" | "CPV Agent";
+  role: UserRole;
   company: string;
   email: string;
-  contactNumber: string;
-  addedOn: string;
-  taggedTo?: string | string[];
-  createdBy: string;
-  modifiedBy: string;
-  modifiedOn: string;
-  mapWith?: string;
-  state?: string;
-  pinCode?: string;
+  contact_number: string;
+  created_at: string;
+  updated_at: string;
+  mapped_to_user_id?: string;
+  created_by_user_id?: string;
 }
-
-const mockUsers: User[] = [
-  {
-    id: "1",
-    username: "john_doe",
-    role: "Client Admin",
-    company: "ABC Corp",
-    email: "john.doe@abccorp.com",
-    contactNumber: "9876543210",
-    addedOn: "2024-01-15",
-    taggedTo: "Project Alpha",
-    createdBy: "Admin",
-    modifiedBy: "Admin",
-    modifiedOn: "2024-01-15"
-  },
-  {
-    id: "2",
-    username: "jane_smith",
-    role: "Lead Assigner",
-    company: "XYZ Agency",
-    email: "jane.smith@xyzagency.com",
-    contactNumber: "9876543211",
-    addedOn: "2024-01-16",
-    taggedTo: "Project Beta",
-    createdBy: "john_doe",
-    modifiedBy: "jane_smith",
-    modifiedOn: "2024-01-20",
-    mapWith: "Team Lead 1"
-  },
-  {
-    id: "3",
-    username: "mike_wilson",
-    role: "CPV Agent",
-    company: "DEF Bank",
-    email: "mike.wilson@defbank.com",
-    contactNumber: "9876543212",
-    addedOn: "2024-01-17",
-    taggedTo: "Project Gamma",
-    createdBy: "jane_smith",
-    modifiedBy: "mike_wilson",
-    modifiedOn: "2024-01-18",
-    state: "Maharashtra",
-    pinCode: "400001"
-  }
-];
 
 const UserManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const { user, userRole, loading } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -89,27 +47,103 @@ const UserManagement = () => {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const itemsPerPage = 10;
-  
+
+  // Fetch users based on role-based access
+  const fetchUsers = async () => {
+    if (!user || !userRole) return;
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_users_by_role_access');
+      
+      if (error) {
+        console.error('Error fetching users:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch users",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    fetchUsers();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('user_roles_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_roles'
+        },
+        (payload) => {
+          console.log('Real-time update:', payload);
+          fetchUsers(); // Refetch users when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const filteredUsers = users.filter(user => 
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase())
+    user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedUsers = filteredUsers.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleDeleteUser = (user: User) => {
-    setUsers(prev => prev.filter(u => u.id !== user.id));
-    setUserToDelete(null);
-    toast({
-      title: "User deleted",
-      description: `${user.username} has been successfully deleted.`,
-    });
+  const handleDeleteUser = async (userToDelete: User) => {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('id', userToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "User deleted",
+        description: `${userToDelete.username} has been successfully deleted.`,
+      });
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete user",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditUser = (user: User) => {
@@ -117,45 +151,206 @@ const UserManagement = () => {
     setShowEditDialog(true);
   };
 
-  const handleCreateUser = (userData: Omit<User, 'id' | 'addedOn' | 'createdBy' | 'modifiedBy' | 'modifiedOn'>) => {
-    const newUser: User = {
-      ...userData,
-      id: Date.now().toString(),
-      addedOn: new Date().toISOString().split('T')[0],
-      createdBy: "Current User",
-      modifiedBy: "Current User",
-      modifiedOn: new Date().toISOString().split('T')[0],
-    };
-    setUsers(prev => [...prev, newUser]);
-    setShowCreateDialog(false);
-    toast({
-      title: "User created",
-      description: `${newUser.username} has been successfully created.`,
-    });
+  const handleCreateUser = async (userData: {
+    username: string;
+    role: UserRole;
+    company: string;
+    email: string;
+    contactNumber: string;
+    mappedToUserId?: string;
+  }) => {
+    try {
+      setIsLoading(true);
+
+      // Create user invitation
+      const { data: invitationId, error: inviteError } = await supabase.rpc('create_user_invitation', {
+        p_username: userData.username,
+        p_email: userData.email,
+        p_contact_number: userData.contactNumber,
+        p_role: userData.role,
+        p_company: userData.company,
+        p_mapped_to_user_id: userData.mappedToUserId || null
+      });
+
+      if (inviteError) throw inviteError;
+
+      // Send invitation email
+      const { error: emailError } = await supabase.functions.invoke('send-user-invitation', {
+        body: {
+          username: userData.username,
+          email: userData.email,
+          role: userData.role,
+          invitationToken: invitationId,
+          createdBy: user?.email || 'System'
+        }
+      });
+
+      if (emailError) {
+        console.error('Email sending error:', emailError);
+        // Don't throw error for email failure, just warn
+        toast({
+          title: "User created with warning",
+          description: `${userData.username} was created but invitation email failed to send.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "User created",
+          description: `${userData.username} has been created and invitation email sent.`,
+        });
+      }
+
+      setShowCreateDialog(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create user",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
-    setUsers(prev => prev.map(user => 
-      user.id === updatedUser.id 
-        ? { ...updatedUser, modifiedBy: "Current User", modifiedOn: new Date().toISOString().split('T')[0] }
-        : user
-    ));
-    setShowEditDialog(false);
-    setSelectedUser(null);
-    toast({
-      title: "User updated",
-      description: `${updatedUser.username} has been successfully updated.`,
-    });
+  const handleUpdateUser = async (updatedUser: User) => {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({
+          username: updatedUser.username,
+          email: updatedUser.email,
+          contact_number: updatedUser.contact_number,
+          company: updatedUser.company,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', updatedUser.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "User updated",
+        description: `${updatedUser.username} has been successfully updated.`,
+      });
+      setShowEditDialog(false);
+      setSelectedUser(null);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user",
+        variant: "destructive",
+      });
+    }
   };
 
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleBadgeVariant = (role: UserRole) => {
     switch (role) {
-      case "Client Admin": return "default";
-      case "Lead Assigner": return "secondary";
-      case "CPV Agent": return "outline";
+      case "super_admin": return "default";
+      case "client_admin": return "secondary";
+      case "lead_assigner": return "outline";
+      case "cpv_agent": return "outline";
       default: return "default";
     }
   };
+
+  const formatRole = (role: UserRole) => {
+    switch (role) {
+      case "super_admin": return "Super Admin";
+      case "client_admin": return "Client Admin";
+      case "lead_assigner": return "Lead Assigner";
+      case "cpv_agent": return "CPV Agent";
+      default: return role;
+    }
+  };
+
+  const canCreateUsers = () => {
+    return userRole === 'super_admin' || userRole === 'client_admin' || userRole === 'lead_assigner';
+  };
+
+  // Inline EditUserDialog component
+  const EditUserDialog = ({ open, onOpenChange, user, onUpdateUser }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    user: User;
+    onUpdateUser: (user: User) => void;
+  }) => {
+    const [formData, setFormData] = useState({
+      username: user.username || "",
+      email: user.email || "",
+      contact_number: user.contact_number || "",
+      company: user.company || ""
+    });
+
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      const updatedUser: User = {
+        ...user,
+        username: formData.username,
+        email: formData.email,
+        contact_number: formData.contact_number,
+        company: formData.company
+      };
+      onUpdateUser(updatedUser);
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Username</Label>
+              <Input
+                value={formData.username}
+                onChange={(e) => setFormData({...formData, username: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Contact Number</Label>
+              <Input
+                value={formData.contact_number}
+                onChange={(e) => setFormData({...formData, contact_number: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Company</Label>
+              <Input
+                value={formData.company}
+                onChange={(e) => setFormData({...formData, company: e.target.value})}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit">Save</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -209,10 +404,16 @@ const UserManagement = () => {
                   className="pl-9"
                 />
               </div>
-              <Button onClick={() => setShowCreateDialog(true)} className="bg-primary hover:bg-primary/90">
-                <Plus className="h-4 w-4 mr-2" />
-                Create User
-              </Button>
+              {canCreateUsers() && (
+                <Button 
+                  onClick={() => setShowCreateDialog(true)} 
+                  className="bg-primary hover:bg-primary/90"
+                  disabled={isLoading}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create User
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -221,67 +422,84 @@ const UserManagement = () => {
         <Card>
           <CardHeader>
             <CardTitle>Users ({filteredUsers.length})</CardTitle>
+            <CardDescription>
+              {userRole === 'super_admin' && "Viewing all users in the system"}
+              {userRole === 'client_admin' && "Viewing Lead Assigners mapped to your company"}
+              {userRole === 'lead_assigner' && "Viewing CPV Agents you created"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sr.No</TableHead>
-                    <TableHead>User Name</TableHead>
-                    <TableHead className="w-48">Role</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Contact Number</TableHead>
-                    <TableHead>Added On</TableHead>
-                    <TableHead>Tagged To</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead>Modified By</TableHead>
-                    <TableHead>Modified On</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedUsers.map((user, index) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{startIndex + index + 1}</TableCell>
-                      <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell>
-                        <Badge variant={getRoleBadgeVariant(user.role)}>
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{user.company}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.contactNumber}</TableCell>
-                      <TableCell>{user.addedOn}</TableCell>
-                      <TableCell>{Array.isArray(user.taggedTo) ? user.taggedTo.join(", ") : user.taggedTo || "-"}</TableCell>
-                      <TableCell>{user.createdBy}</TableCell>
-                      <TableCell>{user.modifiedBy}</TableCell>
-                      <TableCell>{user.modifiedOn}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditUser(user)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setUserToDelete(user)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            {isLoading ? (
+              <div className="text-center p-8">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-4 text-muted-foreground">Loading users...</p>
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="text-center p-8 text-muted-foreground">
+                <User className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium mb-2">No Users Found</h3>
+                <p>
+                  {searchTerm 
+                    ? "No users match your search criteria." 
+                    : "You don't have access to any users yet."
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sr.No</TableHead>
+                      <TableHead>User Name</TableHead>
+                      <TableHead className="w-48">Role</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Contact Number</TableHead>
+                      <TableHead>Created At</TableHead>
+                      <TableHead>Updated At</TableHead>
+                      <TableHead>Action</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedUsers.map((user, index) => (
+                      <TableRow key={user.id}>
+                        <TableCell>{startIndex + index + 1}</TableCell>
+                        <TableCell className="font-medium">{user.username}</TableCell>
+                        <TableCell>
+                          <Badge variant={getRoleBadgeVariant(user.role)}>
+                            {formatRole(user.role)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{user.company}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.contact_number}</TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(user.updated_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setUserToDelete(user)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -317,7 +535,7 @@ const UserManagement = () => {
 
         {/* Edit User Dialog */}
         {selectedUser && (
-          <UserEditDialog
+          <EditUserDialog
             open={showEditDialog}
             onOpenChange={setShowEditDialog}
             user={selectedUser}

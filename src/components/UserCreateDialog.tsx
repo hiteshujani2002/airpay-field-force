@@ -9,19 +9,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+
+type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent';
 
 interface UserCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateUser: (userData: {
     username: string;
-    role: "Client Admin" | "Lead Assigner" | "CPV Agent";
+    role: UserRole;
     company: string;
     email: string;
     contactNumber: string;
-    taggedTo?: string[];
-    state?: string;
-    pinCode?: string;
+    mappedToUserId?: string;
   }) => void;
 }
 
@@ -31,15 +32,8 @@ const companies = [
   "DEF Bank",
   "GHI Financial",
   "JKL Services",
-  "MNO Solutions"
-];
-
-const mapWithOptions = [
-  "Team Lead 1",
-  "Team Lead 2", 
-  "Team Lead 3",
-  "Senior Assigner",
-  "Regional Manager"
+  "MNO Solutions",
+  "airpay payment services"
 ];
 
 const states = [
@@ -59,9 +53,10 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   onCreateUser
 }) => {
   const { toast } = useToast();
+  const { userRole } = useAuth();
   const [formData, setFormData] = useState({
     username: "",
-    role: "" as "Client Admin" | "Lead Assigner" | "CPV Agent" | "",
+    role: "" as UserRole | "",
     company: "",
     email: "",
     contactNumber: "",
@@ -71,6 +66,30 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Get available roles based on current user's role
+  const getAvailableRoles = (): UserRole[] => {
+    switch (userRole) {
+      case 'super_admin':
+        return ['super_admin', 'client_admin', 'lead_assigner', 'cpv_agent'];
+      case 'client_admin':
+        return ['client_admin'];
+      case 'lead_assigner':
+        return ['cpv_agent'];
+      default:
+        return [];
+    }
+  };
+
+  const formatRoleDisplay = (role: UserRole): string => {
+    switch (role) {
+      case 'super_admin': return 'Super Admin';
+      case 'client_admin': return 'Client Admin';
+      case 'lead_assigner': return 'Lead Assigner';
+      case 'cpv_agent': return 'CPV Agent';
+      default: return role;
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -99,8 +118,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       newErrors.contactNumber = "Contact number must be 10 digits";
     }
 
-
-    if (formData.role === "CPV Agent") {
+    if (formData.role === "cpv_agent") {
       if (!formData.state) {
         newErrors.state = "State is required for CPV Agent role";
       }
@@ -129,13 +147,10 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
 
     onCreateUser({
       username: formData.username,
-      role: formData.role as "Client Admin" | "Lead Assigner" | "CPV Agent",
+      role: formData.role as UserRole,
       company: formData.company,
       email: formData.email,
       contactNumber: formData.contactNumber,
-      taggedTo: formData.taggedTo || undefined,
-      state: formData.state || undefined,
-      pinCode: formData.pinCode || undefined,
     });
 
     // Reset form
@@ -162,7 +177,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   const handleRoleChange = (role: string) => {
     setFormData(prev => ({ 
       ...prev, 
-      role: role as "Client Admin" | "Lead Assigner" | "CPV Agent",
+      role: role as UserRole,
       taggedTo: [],
       state: "",
       pinCode: ""
@@ -225,9 +240,11 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Client Admin">Client Admin</SelectItem>
-                <SelectItem value="Lead Assigner">Lead Assigner</SelectItem>
-                <SelectItem value="CPV Agent">CPV Agent</SelectItem>
+                {getAvailableRoles().map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {formatRoleDisplay(role)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {errors.role && (
@@ -238,7 +255,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
           {/* Company */}
           <div className="space-y-2">
             <Label htmlFor="company">
-              {formData.role === "Lead Assigner" || formData.role === "CPV Agent" ? "Agency *" : "Company/Agency *"}
+              {formData.role === "lead_assigner" || formData.role === "cpv_agent" ? "Agency *" : "Company/Agency *"}
             </Label>
             <Select value={formData.company} onValueChange={(value) => handleInputChange("company", value)}>
               <SelectTrigger className={errors.company ? "border-destructive" : ""}>
@@ -292,8 +309,8 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
             )}
           </div>
 
-          {/* Tagged To */}
-          {(formData.role === "Lead Assigner" || formData.role === "CPV Agent") ? (
+          {/* Tagged To - Only for certain roles */}
+          {(formData.role === "lead_assigner" || formData.role === "cpv_agent") && (
             <div className="space-y-2">
               <Label htmlFor="taggedTo">Tagged To (Max 6)</Label>
               <Popover>
@@ -342,20 +359,10 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
                 </div>
               )}
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="taggedTo">Tagged To</Label>
-              <Input
-                id="taggedTo"
-                value={Array.isArray(formData.taggedTo) ? formData.taggedTo.join(", ") : formData.taggedTo}
-                onChange={(e) => handleInputChange("taggedTo", e.target.value)}
-                placeholder="Enter project or assignment"
-              />
-            </div>
           )}
 
           {/* Conditional Fields for CPV Agent */}
-          {formData.role === "CPV Agent" && (
+          {formData.role === "cpv_agent" && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="state">State *</Label>
