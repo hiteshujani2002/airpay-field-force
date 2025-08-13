@@ -678,8 +678,113 @@ const CPVMerchantStatus = () => {
   )
 
   const renderSuperAdminView = () => renderClientAdminView()
-  const renderLeadAssignerView = () => renderClientAdminView()
-  const renderCPVAgentView = () => renderClientAdminView()
+
+  // Lead Assigner View - shows forms assigned to them
+  const renderLeadAssignerView = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/dashboard')}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Assigned CPV Forms</h1>
+          <p className="text-muted-foreground">Manage CPV forms assigned to you for lead verification</p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Assigned Forms</CardTitle>
+          <CardDescription>
+            CPV forms assigned to you for merchant lead management
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center p-8 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-medium mb-2">No Forms Assigned</h3>
+            <p>You don't have any CPV forms assigned to you yet.</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+
+  // CPV Agent View - shows tabs for lead management
+  const renderCPVAgentView = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/dashboard')}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">CPV Agent Dashboard</h1>
+          <p className="text-muted-foreground">Manage merchant verification leads</p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lead Management</CardTitle>
+          <CardDescription>
+            Manage merchant leads assigned to you for verification
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="pending" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="pending" className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Pending Leads
+              </TabsTrigger>
+              <TabsTrigger value="completed" className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Completed Leads
+              </TabsTrigger>
+              <TabsTrigger value="rejected" className="flex items-center gap-2">
+                <XCircle className="h-4 w-4" />
+                Rejected Leads
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="pending" className="mt-6">
+              <div className="text-center p-8 text-muted-foreground">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
+                <h3 className="text-lg font-medium mb-2">No Pending Leads</h3>
+                <p>You don't have any pending leads to verify at the moment.</p>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="completed" className="mt-6">
+              <div className="text-center p-8 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-400" />
+                <h3 className="text-lg font-medium mb-2">No Completed Leads</h3>
+                <p>You haven't completed any lead verifications yet.</p>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="rejected" className="mt-6">
+              <div className="text-center p-8 text-muted-foreground">
+                <XCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+                <h3 className="text-lg font-medium mb-2">No Rejected Leads</h3>
+                <p>You haven't rejected any leads yet.</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  )
 
   const renderContent = () => {
     switch (userRole) {
