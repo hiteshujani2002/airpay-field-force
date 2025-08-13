@@ -208,43 +208,43 @@ export type Database = {
       }
       user_roles: {
         Row: {
-          company: string | null
-          contact_number: string | null
+          company: string
+          contact_number: string
           created_at: string | null
           created_by_user_id: string | null
-          email: string | null
+          email: string
           id: string
           mapped_to_user_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string | null
           user_id: string
-          username: string | null
+          username: string
         }
         Insert: {
-          company?: string | null
-          contact_number?: string | null
+          company: string
+          contact_number: string
           created_at?: string | null
           created_by_user_id?: string | null
-          email?: string | null
+          email: string
           id?: string
           mapped_to_user_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
           user_id: string
-          username?: string | null
+          username: string
         }
         Update: {
-          company?: string | null
-          contact_number?: string | null
+          company?: string
+          contact_number?: string
           created_at?: string | null
           created_by_user_id?: string | null
-          email?: string | null
+          email?: string
           id?: string
           mapped_to_user_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
           user_id?: string
-          username?: string | null
+          username?: string
         }
         Relationships: []
       }
