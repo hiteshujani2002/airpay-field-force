@@ -208,25 +208,43 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          company: string | null
+          contact_number: string | null
           created_at: string | null
+          created_by_user_id: string | null
+          email: string | null
           id: string
+          mapped_to_user_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string | null
           user_id: string
+          username: string | null
         }
         Insert: {
+          company?: string | null
+          contact_number?: string | null
           created_at?: string | null
+          created_by_user_id?: string | null
+          email?: string | null
           id?: string
+          mapped_to_user_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
           user_id: string
+          username?: string | null
         }
         Update: {
+          company?: string | null
+          contact_number?: string | null
           created_at?: string | null
+          created_by_user_id?: string | null
+          email?: string | null
           id?: string
+          mapped_to_user_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -235,9 +253,36 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_user_invitation: {
+        Args: {
+          p_username: string
+          p_email: string
+          p_contact_number: string
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_company?: string
+          p_mapped_to_user_id?: string
+        }
+        Returns: string
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_users_by_role_access: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          user_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          username: string
+          email: string
+          contact_number: string
+          company: string
+          mapped_to_user_id: string
+          created_by_user_id: string
+          created_at: string
+          updated_at: string
+        }[]
       }
       has_role: {
         Args: {
