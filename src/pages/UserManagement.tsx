@@ -123,25 +123,43 @@ const UserManagement = () => {
 
   const handleDeleteUser = async (userToDelete: User) => {
     try {
-      console.log('Attempting to delete user:', {
+      console.log('Attempting synchronized deletion for user:', {
         userToDelete,
         currentUser: user?.id,
         currentUserRole: userRole
       });
 
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('id', userToDelete.id);
-
-      if (error) {
-        console.error('Supabase delete error:', error);
-        throw error;
+      // Get the current session token for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
       }
+
+      // Call the edge function to perform synchronized deletion
+      const { data, error: functionError } = await supabase.functions.invoke('delete-user', {
+        body: {
+          userIdToDelete: userToDelete.user_id
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (functionError) {
+        console.error('Edge function error:', functionError);
+        throw new Error(`Failed to delete user: ${functionError.message}`);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      console.log('User successfully deleted from both auth and user_roles');
 
       toast({
         title: "User deleted",
-        description: `${userToDelete.username} has been successfully deleted.`,
+        description: `${userToDelete.username} has been completely removed from the system.`,
       });
       setUserToDelete(null);
       fetchUsers();
