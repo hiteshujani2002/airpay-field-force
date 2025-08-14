@@ -189,43 +189,43 @@ const UserManagement = () => {
     try {
       setIsLoading(true);
 
-      // Create user invitation
-      const { data: invitationId, error: inviteError } = await supabase.rpc('create_user_invitation', {
-        p_username: userData.username,
-        p_email: userData.email,
-        p_contact_number: userData.contactNumber,
-        p_role: userData.role,
-        p_company: userData.company,
-        p_mapped_to_user_id: userData.mappedToUserId || null
-      });
+      // Get the current session token for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
 
-      if (inviteError) throw inviteError;
-
-      // Send invitation email
-      const { error: emailError } = await supabase.functions.invoke('send-user-invitation', {
+      // Call the new create-user edge function for synchronized creation
+      const { data, error: createError } = await supabase.functions.invoke('create-user', {
         body: {
           username: userData.username,
           email: userData.email,
           role: userData.role,
-          invitationToken: invitationId,
-          createdBy: user?.email || 'System'
-        }
+          company: userData.company,
+          contactNumber: userData.contactNumber,
+          mappedToUserId: userData.mappedToUserId || null
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
-      if (emailError) {
-        console.error('Email sending error:', emailError);
-        // Don't throw error for email failure, just warn
-        toast({
-          title: "User created with warning",
-          description: `${userData.username} was created but invitation email failed to send.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "User created",
-          description: `${userData.username} has been created and invitation email sent.`,
-        });
+      if (createError) {
+        console.error('User creation error:', createError);
+        throw new Error(`Failed to create user: ${createError.message}`);
       }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      console.log('User created successfully:', data);
+
+      toast({
+        title: "User created",
+        description: `${userData.username} has been created successfully. They will receive login instructions via email.`,
+      });
 
       setShowCreateDialog(false);
       fetchUsers();
@@ -233,7 +233,7 @@ const UserManagement = () => {
       console.error('Error creating user:', error);
       toast({
         title: "Error",
-        description: "Failed to create user",
+        description: `Failed to create user: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
     } finally {
