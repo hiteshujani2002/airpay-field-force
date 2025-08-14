@@ -123,12 +123,21 @@ const UserManagement = () => {
 
   const handleDeleteUser = async (userToDelete: User) => {
     try {
+      console.log('Attempting to delete user:', {
+        userToDelete,
+        currentUser: user?.id,
+        currentUserRole: userRole
+      });
+
       const { error } = await supabase
         .from('user_roles')
         .delete()
         .eq('id', userToDelete.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
 
       toast({
         title: "User deleted",
@@ -140,7 +149,7 @@ const UserManagement = () => {
       console.error('Error deleting user:', error);
       toast({
         title: "Error",
-        description: "Failed to delete user",
+        description: `Failed to delete user: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
     }
