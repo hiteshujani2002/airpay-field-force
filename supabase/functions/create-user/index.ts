@@ -14,6 +14,7 @@ interface CreateUserRequest {
   company: string;
   contactNumber: string;
   mappedToUserId?: string;
+  taggedToCompany?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -67,7 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Current user verified:', currentUser.id);
 
-    const { username, email, role, company, contactNumber, mappedToUserId }: CreateUserRequest = await req.json();
+    const { username, email, role, company, contactNumber, mappedToUserId, taggedToCompany }: CreateUserRequest = await req.json();
 
     console.log(`Creating user ${email} with role ${role}`);
 
@@ -137,6 +138,12 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Auth user created successfully:', newUser.user.id);
 
     // Step 2: Create corresponding entry in user_roles table
+    // Determine the final company value based on role and taggedToCompany
+    let finalCompany = company;
+    if (taggedToCompany && (role === 'lead_assigner' || role === 'cpv_agent')) {
+      finalCompany = taggedToCompany;
+    }
+
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
@@ -145,7 +152,7 @@ const handler = async (req: Request): Promise<Response> => {
         email: email,
         contact_number: contactNumber,
         role: role,
-        company: company,
+        company: finalCompany,
         mapped_to_user_id: mappedToUserId || null,
         created_by_user_id: currentUser.id
       });

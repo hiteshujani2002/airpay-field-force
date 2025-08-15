@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 type UserRole = 'super_admin' | 'client_admin' | 'lead_assigner' | 'cpv_agent';
 
@@ -23,18 +24,16 @@ interface UserCreateDialogProps {
     email: string;
     contactNumber: string;
     mappedToUserId?: string;
+    taggedToCompany?: string;
   }) => void;
 }
 
-const companies = [
-  "ABC Corp",
-  "XYZ Agency", 
-  "DEF Bank",
-  "GHI Financial",
-  "JKL Services",
-  "MNO Solutions",
-  "airpay payment services"
-];
+interface Entity {
+  id: string;
+  entity_type: 'company' | 'agency';
+  company_name?: string;
+  agency_name?: string;
+}
 
 const states = [
   "Maharashtra",
@@ -53,7 +52,9 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   onCreateUser
 }) => {
   const { toast } = useToast();
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
+  const [entities, setEntities] = useState<Entity[]>([]);
+  const [currentUserCompany, setCurrentUserCompany] = useState<string>("");
   const [formData, setFormData] = useState({
     username: "",
     role: "" as UserRole | "",
@@ -61,11 +62,79 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
     email: "",
     contactNumber: "",
     taggedTo: [] as string[],
+    taggedToCompany: "",
     state: "",
     pinCode: ""
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Fetch entities and current user company on component mount
+  useEffect(() => {
+    if (open && user) {
+      fetchEntities();
+      fetchCurrentUserCompany();
+    }
+  }, [open, user]);
+
+  const fetchEntities = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('entities')
+        .select('id, entity_type, company_name, agency_name')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setEntities(data || []);
+    } catch (error) {
+      console.error('Error fetching entities:', error);
+    }
+  };
+
+  const fetchCurrentUserCompany = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('company')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) throw error;
+      setCurrentUserCompany(data?.company || "");
+    } catch (error) {
+      console.error('Error fetching current user company:', error);
+    }
+  };
+
+  // Get companies based on role for company dropdown
+  const getCompaniesForDropdown = () => {
+    if (formData.role === "lead_assigner" || formData.role === "cpv_agent") {
+      // Show agencies for lead assigners and cpv agents
+      return entities.filter(entity => entity.entity_type === 'agency').map(entity => ({
+        value: entity.agency_name || '',
+        label: entity.agency_name || ''
+      }));
+    } else {
+      // Show companies for client admins
+      return entities.filter(entity => entity.entity_type === 'company').map(entity => ({
+        value: entity.company_name || '',
+        label: entity.company_name || ''
+      }));
+    }
+  };
+
+  // Get companies for tagging dropdown (only companies)
+  const getCompaniesForTagging = () => {
+    return entities.filter(entity => entity.entity_type === 'company').map(entity => ({
+      value: entity.company_name || '',
+      label: entity.company_name || ''
+    }));
+  };
+
+  // Check if user should see tagged to company dropdown
+  const shouldShowTaggedToCompany = () => {
+    return userRole === 'super_admin' && (formData.role === "lead_assigner" || formData.role === "cpv_agent");
+  };
 
   // Get available roles based on current user's role
   const getAvailableRoles = (): UserRole[] => {
@@ -118,6 +187,10 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       newErrors.contactNumber = "Contact number must be 10 digits";
     }
 
+    if (shouldShowTaggedToCompany() && !formData.taggedToCompany) {
+      newErrors.taggedToCompany = "Tagged to Company is required";
+    }
+
     if (formData.role === "cpv_agent") {
       if (!formData.state) {
         newErrors.state = "State is required for CPV Agent role";
@@ -151,6 +224,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       company: formData.company,
       email: formData.email,
       contactNumber: formData.contactNumber,
+      taggedToCompany: shouldShowTaggedToCompany() ? formData.taggedToCompany : (userRole === 'lead_assigner' ? currentUserCompany : undefined),
     });
 
     // Reset form
@@ -161,6 +235,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       email: "",
       contactNumber: "",
       taggedTo: [],
+      taggedToCompany: "",
       state: "",
       pinCode: ""
     });
@@ -179,8 +254,10 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       ...prev, 
       role: role as UserRole,
       taggedTo: [],
+      taggedToCompany: "",
       state: "",
-      pinCode: ""
+      pinCode: "",
+      company: "" // Reset company when role changes
     }));
     if (errors.role) {
       setErrors(prev => ({ ...prev, role: "" }));
@@ -262,9 +339,9 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
                 <SelectValue placeholder="Select company" />
               </SelectTrigger>
               <SelectContent>
-                {companies.map((company) => (
-                  <SelectItem key={company} value={company}>
-                    {company}
+                {getCompaniesForDropdown().map((company) => (
+                  <SelectItem key={company.value} value={company.value}>
+                    {company.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -309,54 +386,24 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
             )}
           </div>
 
-          {/* Tagged To - Only for certain roles */}
-          {(formData.role === "lead_assigner" || formData.role === "cpv_agent") && (
+          {/* Tagged To Company - Only for Super Admin creating Lead Assigner or CPV Agent */}
+          {shouldShowTaggedToCompany() && (
             <div className="space-y-2">
-              <Label htmlFor="taggedTo">Tagged To (Max 6)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    {formData.taggedTo.length > 0 
-                      ? `${formData.taggedTo.length} companies selected`
-                      : "Select companies"
-                    }
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <div className="p-3 space-y-2">
-                    {companies.map((company) => (
-                      <div key={company} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`company-${company}`}
-                          checked={formData.taggedTo.includes(company)}
-                          onCheckedChange={(checked) => handleTaggedToChange(company, checked as boolean)}
-                          disabled={!formData.taggedTo.includes(company) && formData.taggedTo.length >= 6}
-                        />
-                        <Label 
-                          htmlFor={`company-${company}`} 
-                          className="text-sm font-normal cursor-pointer"
-                        >
-                          {company}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              {/* Selected companies display */}
-              {formData.taggedTo.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.taggedTo.map((company) => (
-                    <Badge key={company} variant="secondary" className="text-xs">
-                      {company}
-                      <X
-                        className="h-3 w-3 ml-1 cursor-pointer"
-                        onClick={() => removeTaggedTo(company)}
-                      />
-                    </Badge>
+              <Label htmlFor="taggedToCompany">Tagged to Company *</Label>
+              <Select value={formData.taggedToCompany} onValueChange={(value) => handleInputChange("taggedToCompany", value)}>
+                <SelectTrigger className={errors.taggedToCompany ? "border-destructive" : ""}>
+                  <SelectValue placeholder="Select company to tag to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getCompaniesForTagging().map((company) => (
+                    <SelectItem key={company.value} value={company.value}>
+                      {company.label}
+                    </SelectItem>
                   ))}
-                </div>
+                </SelectContent>
+              </Select>
+              {errors.taggedToCompany && (
+                <p className="text-sm text-destructive">{errors.taggedToCompany}</p>
               )}
             </div>
           )}

@@ -185,6 +185,7 @@ const UserManagement = () => {
     email: string;
     contactNumber: string;
     mappedToUserId?: string;
+    taggedToCompany?: string;
   }) => {
     try {
       setIsLoading(true);
@@ -204,7 +205,8 @@ const UserManagement = () => {
           role: userData.role,
           company: userData.company,
           contactNumber: userData.contactNumber,
-          mappedToUserId: userData.mappedToUserId || null
+          mappedToUserId: userData.mappedToUserId || null,
+          taggedToCompany: userData.taggedToCompany || null
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,

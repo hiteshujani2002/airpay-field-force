@@ -55,9 +55,7 @@ const companyDetailsSchema = z.object({
   officeOwnership: z.string().min(1, 'Please select office ownership')
 })
 
-const agencyDetailsSchema = companyDetailsSchema.omit({ initiative: true }).extend({
-  mapWith: z.array(z.string()).min(1, 'Please select at least one company to map with')
-})
+const agencyDetailsSchema = companyDetailsSchema.omit({ initiative: true })
 
 const countries = ['India', 'United States', 'United Kingdom', 'Canada', 'Australia']
 const indianStates = [
@@ -155,8 +153,7 @@ export default function EntityOnboarding() {
       state: '',
       city: '',
       pincode: '',
-      officeOwnership: '',
-      mapWith: []
+      officeOwnership: ''
     }
   })
 
@@ -257,8 +254,6 @@ export default function EntityOnboarding() {
                                   'private_limited'
       } else {
         entityData.agency_name = formData.companyName
-        const agencyFormData = formData as any
-        entityData.parent_company = agencyFormData.mapWith?.[0] || null
       }
 
       console.log('Entity data to insert:', entityData)
@@ -974,54 +969,6 @@ export default function EntityOnboarding() {
                   )}
                 />
 
-                <FormField
-                  control={agencyForm.control}
-                  name="mapWith"
-                  render={() => (
-                    <FormItem>
-                      <FormLabel>Map with Companies (Select up to 6)</FormLabel>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {mockCompanies.map((company) => (
-                          <FormField
-                            key={company}
-                            control={agencyForm.control}
-                            name="mapWith"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={company}
-                                  className="flex flex-row items-start space-x-3 space-y-0"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(company)}
-                                      onCheckedChange={(checked) => {
-                                        const currentValues = field.value || []
-                                        if (checked) {
-                                          if (currentValues.length < 6) {
-                                            field.onChange([...currentValues, company])
-                                          }
-                                        } else {
-                                          field.onChange(
-                                            currentValues.filter((value) => value !== company)
-                                          )
-                                        }
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="text-sm font-normal">
-                                    {company}
-                                  </FormLabel>
-                                </FormItem>
-                              )
-                            }}
-                          />
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <div className="flex justify-end">
                   <Button type="submit" size="lg">
