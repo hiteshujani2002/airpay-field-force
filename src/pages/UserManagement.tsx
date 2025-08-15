@@ -217,6 +217,7 @@ const UserManagement = () => {
       }
 
       if (data?.error) {
+        // Use the specific error message from the edge function
         throw new Error(data.error);
       }
 

@@ -89,7 +89,45 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (authError) {
       console.error('Error creating auth user:', authError);
-      throw new Error(`Failed to create user in authentication system: ${authError.message}`);
+      
+      // Handle specific error cases with user-friendly messages
+      if (authError.message.includes('already been registered') || authError.message.includes('email_exists')) {
+        return new Response(JSON.stringify({ 
+          error: 'A user with this email address already exists. Please use a different email address.',
+          code: 'EMAIL_EXISTS'
+        }), {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          },
+        });
+      }
+      
+      if (authError.message.includes('invalid_email')) {
+        return new Response(JSON.stringify({ 
+          error: 'Please provide a valid email address.',
+          code: 'INVALID_EMAIL'
+        }), {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders,
+          },
+        });
+      }
+      
+      // Generic auth error
+      return new Response(JSON.stringify({ 
+        error: `Authentication error: ${authError.message}`,
+        code: 'AUTH_ERROR'
+      }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
     }
 
     if (!newUser.user) {
