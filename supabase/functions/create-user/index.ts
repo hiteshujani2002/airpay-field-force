@@ -120,7 +120,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: newUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: tempPassword,
-      email_confirm: false, // We'll send our own invitation
+      email_confirm: true, // Auto-confirm email so user can login immediately
       user_metadata: {
         username: username,
         role: role,
