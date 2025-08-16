@@ -76,15 +76,36 @@ const handler = async (req: Request): Promise<Response> => {
     const tempPassword = `temp_${Math.random().toString(36).slice(2, 10)}!A1`;
 
     // Step 1: Check if email already exists in user_roles
-    const { data: existingUser } = await supabaseAdmin
+    const { data: existingUserRole } = await supabaseAdmin
       .from('user_roles')
       .select('email')
       .eq('email', email)
       .single()
 
-    if (existingUser) {
+    if (existingUserRole) {
       return new Response(JSON.stringify({ 
         error: 'A user with this email address already exists. Please use a different email address.',
+        code: 'EMAIL_EXISTS'
+      }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
+    }
+
+    // Step 1.5: Check if email already exists in auth.users
+    const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000 // Get enough users to check for duplicates
+    });
+
+    const emailExists = existingAuthUser?.users?.some(user => user.email === email);
+    
+    if (emailExists) {
+      return new Response(JSON.stringify({ 
+        error: 'A user with this email address already exists in the authentication system. Please use a different email address.',
         code: 'EMAIL_EXISTS'
       }), {
         status: 400,
