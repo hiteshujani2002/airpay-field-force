@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,36 +7,96 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Edit, User, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UserProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// Mock current user data - in a real app, this would come from context/auth
-const currentUser = {
-  id: "current-user",
-  username: "current_user",
-  role: "Client Admin" as const,
-  company: "ABC Corp",
-  email: "current.user@abccorp.com",
-  contactNumber: "9876543210",
-  addedOn: "2024-01-01",
-  taggedTo: "Admin Operations",
-  avatar: "/placeholder-avatar.jpg"
-};
+interface UserData {
+  id: string;
+  username: string;
+  role: string;
+  company: string;
+  email: string;
+  contactNumber: string;
+  addedOn: string;
+  taggedTo: string;
+  avatar?: string;
+}
 
 const UserProfileDialog: React.FC<UserProfileDialogProps> = ({
   open,
   onOpenChange
 }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    username: currentUser.username,
-    contactNumber: currentUser.contactNumber
+    username: "",
+    contactNumber: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (open && user) {
+      fetchUserData();
+    }
+  }, [open, user]);
+
+  const fetchUserData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user data:', error);
+        return;
+      }
+
+      const formattedUserData: UserData = {
+        id: data.user_id,
+        username: data.username || "NA",
+        role: formatRole(data.role) || "NA",
+        company: data.company || "NA",
+        email: data.email || user.email || "NA",
+        contactNumber: data.contact_number || "NA",
+        addedOn: data.created_at || "NA",
+        taggedTo: data.mapped_to_user_id ? "Mapped User" : "NA",
+        avatar: user.user_metadata?.avatar_url || ""
+      };
+
+      setUserData(formattedUserData);
+      setFormData({
+        username: formattedUserData.username,
+        contactNumber: formattedUserData.contactNumber
+      });
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatRole = (role: string) => {
+    switch (role) {
+      case 'client_admin': return 'Client Admin';
+      case 'lead_assigner': return 'Lead Assigner';
+      case 'cpv_agent': return 'CPV Agent';
+      case 'super_admin': return 'Super Admin';
+      default: return role;
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -75,10 +135,12 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({
   };
 
   const handleCancel = () => {
-    setFormData({
-      username: currentUser.username,
-      contactNumber: currentUser.contactNumber
-    });
+    if (userData) {
+      setFormData({
+        username: userData.username,
+        contactNumber: userData.contactNumber
+      });
+    }
     setErrors({});
     setIsEditing(false);
   };
@@ -117,135 +179,145 @@ const UserProfileDialog: React.FC<UserProfileDialogProps> = ({
           </div>
         </DialogHeader>
         
-        <div className="space-y-6">
-          {/* Profile Picture */}
-          <div className="flex justify-center">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={currentUser.avatar} />
-              <AvatarFallback className="text-lg">
-                <User className="h-8 w-8" />
-              </AvatarFallback>
-            </Avatar>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
+        ) : userData ? (
+          <div className="space-y-6">
+            {/* Profile Picture */}
+            <div className="flex justify-center">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={userData.avatar} />
+                <AvatarFallback className="text-lg">
+                  <User className="h-8 w-8" />
+                </AvatarFallback>
+              </Avatar>
+            </div>
 
-          {/* Profile Information */}
-          <div className="space-y-4">
-            {/* Username */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-username">Username</Label>
-              {isEditing ? (
-                <>
-                  <Input
-                    id="profile-username"
-                    value={formData.username}
-                    onChange={(e) => handleInputChange("username", e.target.value)}
-                    className={errors.username ? "border-destructive" : ""}
-                  />
-                  {errors.username && (
-                    <p className="text-sm text-destructive">{errors.username}</p>
-                  )}
-                </>
-              ) : (
-                <div className="p-2 bg-muted rounded-md text-sm">
-                  {currentUser.username}
+            {/* Profile Information */}
+            <div className="space-y-4">
+              {/* Username */}
+              <div className="space-y-2">
+                <Label htmlFor="profile-username">Username</Label>
+                {isEditing ? (
+                  <>
+                    <Input
+                      id="profile-username"
+                      value={formData.username}
+                      onChange={(e) => handleInputChange("username", e.target.value)}
+                      className={errors.username ? "border-destructive" : ""}
+                    />
+                    {errors.username && (
+                      <p className="text-sm text-destructive">{errors.username}</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    {userData.username}
+                  </div>
+                )}
+              </div>
+
+              {/* Role - Read only */}
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <div className="flex items-center">
+                  <Badge variant={getRoleBadgeVariant(userData.role)}>
+                    {userData.role}
+                  </Badge>
                 </div>
-              )}
-            </div>
-
-            {/* Role - Read only */}
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <div className="flex items-center">
-                <Badge variant={getRoleBadgeVariant(currentUser.role)}>
-                  {currentUser.role}
-                </Badge>
               </div>
-            </div>
 
-            {/* Company - Read only */}
-            <div className="space-y-2">
-              <Label>Company</Label>
-              <div className="p-2 bg-muted rounded-md text-sm">
-                {currentUser.company}
-              </div>
-            </div>
-
-            {/* Email - Read only */}
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <div className="p-2 bg-muted rounded-md text-sm">
-                {currentUser.email}
-              </div>
-            </div>
-
-            {/* Contact Number */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-contact">Contact Number</Label>
-              {isEditing ? (
-                <>
-                  <Input
-                    id="profile-contact"
-                    value={formData.contactNumber}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, "");
-                      handleInputChange("contactNumber", value);
-                    }}
-                    maxLength={10}
-                    className={errors.contactNumber ? "border-destructive" : ""}
-                  />
-                  {errors.contactNumber && (
-                    <p className="text-sm text-destructive">{errors.contactNumber}</p>
-                  )}
-                </>
-              ) : (
+              {/* Company - Read only */}
+              <div className="space-y-2">
+                <Label>Company</Label>
                 <div className="p-2 bg-muted rounded-md text-sm">
-                  {currentUser.contactNumber}
+                  {userData.company}
                 </div>
-              )}
-            </div>
-
-            {/* Tagged To - Read only */}
-            <div className="space-y-2">
-              <Label>Tagged To</Label>
-              <div className="p-2 bg-muted rounded-md text-sm">
-                {currentUser.taggedTo}
               </div>
-            </div>
 
-            {/* Member Since - Read only */}
-            <div className="space-y-2">
-              <Label>Member Since</Label>
-              <div className="p-2 bg-muted rounded-md text-sm">
-                {new Date(currentUser.addedOn).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
+              {/* Email - Read only */}
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  {userData.email}
+                </div>
+              </div>
+
+              {/* Contact Number */}
+              <div className="space-y-2">
+                <Label htmlFor="profile-contact">Contact Number</Label>
+                {isEditing ? (
+                  <>
+                    <Input
+                      id="profile-contact"
+                      value={formData.contactNumber}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        handleInputChange("contactNumber", value);
+                      }}
+                      maxLength={10}
+                      className={errors.contactNumber ? "border-destructive" : ""}
+                    />
+                    {errors.contactNumber && (
+                      <p className="text-sm text-destructive">{errors.contactNumber}</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-2 bg-muted rounded-md text-sm">
+                    {userData.contactNumber}
+                  </div>
+                )}
+              </div>
+
+              {/* Tagged To - Read only */}
+              <div className="space-y-2">
+                <Label>Tagged To</Label>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  {userData.taggedTo}
+                </div>
+              </div>
+
+              {/* Member Since - Read only */}
+              <div className="space-y-2">
+                <Label>Member Since</Label>
+                <div className="p-2 bg-muted rounded-md text-sm">
+                  {userData.addedOn !== "NA" ? new Date(userData.addedOn).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  }) : "NA"}
+                </div>
               </div>
             </div>
           </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            No user data available
+          </div>
+        )}
 
-          {/* Action Buttons */}
-          {isEditing ? (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                className="flex-1"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                className="flex-1"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Save
-              </Button>
-            </div>
-          ) : null}
-        </div>
+        {/* Action Buttons */}
+        {isEditing && userData ? (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              className="flex-1"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              className="flex-1"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
