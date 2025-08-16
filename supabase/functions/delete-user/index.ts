@@ -48,17 +48,23 @@ serve(async (req) => {
 
     console.log('Deleting user:', userIdToDelete, 'by:', user.id)
 
-    // Step 1: Delete from auth.users table using admin client
-    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userIdToDelete)
-    
-    if (authDeleteError) {
-      console.error('Auth deletion error:', authDeleteError)
-      throw new Error(`Failed to delete user from auth: ${authDeleteError.message}`)
+    // Step 1: Check if user exists in user_roles table first
+    const { data: userRoleData, error: userRoleCheckError } = await supabaseAdmin
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', userIdToDelete)
+      .single()
+
+    if (userRoleCheckError && userRoleCheckError.code !== 'PGRST116') {
+      console.error('Error checking user_roles:', userRoleCheckError)
+      throw new Error(`Failed to check user roles: ${userRoleCheckError.message}`)
     }
 
-    console.log('Successfully deleted user from auth.users')
+    if (!userRoleData) {
+      throw new Error('User not found in user_roles table')
+    }
 
-    // Step 2: Delete from user_roles table
+    // Step 2: Delete from user_roles table first
     const { error: roleDeleteError } = await supabaseAdmin
       .from('user_roles')
       .delete()
@@ -66,17 +72,30 @@ serve(async (req) => {
 
     if (roleDeleteError) {
       console.error('Role deletion error:', roleDeleteError)
-      // Note: At this point the user is already deleted from auth, 
-      // so we log the error but don't fail the operation
-      console.error('Warning: User deleted from auth but role deletion failed:', roleDeleteError)
+      throw new Error(`Failed to delete user from user_roles: ${roleDeleteError.message}`)
     }
 
     console.log('Successfully deleted user from user_roles')
 
+    // Step 3: Try to delete from auth.users table using admin client
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userIdToDelete)
+    
+    if (authDeleteError) {
+      console.error('Auth deletion error:', authDeleteError)
+      // If auth deletion fails but role deletion succeeded, log warning but don't fail
+      if (authDeleteError.message.includes('User not found')) {
+        console.log('User was not found in auth.users - may have been a pending invitation')
+      } else {
+        console.error('Warning: User deleted from user_roles but auth deletion failed:', authDeleteError)
+      }
+    } else {
+      console.log('Successfully deleted user from auth.users')
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'User successfully deleted from both auth and user_roles' 
+        message: 'User successfully deleted from user_roles and auth (if existed)' 
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

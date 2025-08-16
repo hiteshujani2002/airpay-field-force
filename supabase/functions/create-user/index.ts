@@ -75,7 +75,27 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate a temporary password
     const tempPassword = `temp_${Math.random().toString(36).slice(2, 10)}!A1`;
 
-    // Step 1: Create user in auth.users using admin client
+    // Step 1: Check if email already exists in user_roles
+    const { data: existingUser } = await supabaseAdmin
+      .from('user_roles')
+      .select('email')
+      .eq('email', email)
+      .single()
+
+    if (existingUser) {
+      return new Response(JSON.stringify({ 
+        error: 'A user with this email address already exists. Please use a different email address.',
+        code: 'EMAIL_EXISTS'
+      }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
+    }
+
+    // Step 2: Create user in auth.users using admin client
     const { data: newUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: tempPassword,
@@ -137,7 +157,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Auth user created successfully:', newUser.user.id);
 
-    // Step 2: Create corresponding entry in user_roles table
+    // Step 3: Create corresponding entry in user_roles table
     // Determine the final company value based on role and taggedToCompany
     let finalCompany = company;
     if (taggedToCompany && (role === 'lead_assigner' || role === 'cpv_agent')) {
@@ -168,7 +188,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('User role created successfully');
 
-    // Step 3: Generate a password reset link for the user to set their password
+    // Step 4: Generate a password reset link for the user to set their password
     const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
