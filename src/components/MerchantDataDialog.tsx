@@ -1,10 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Upload, Users } from 'lucide-react'
+import { supabase } from '@/integrations/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
+import { useToast } from '@/hooks/use-toast'
 
 interface MerchantDataDialogProps {
   open: boolean;
@@ -23,8 +26,55 @@ const MerchantDataDialog = ({
   description, 
   isReassign = false 
 }: MerchantDataDialogProps) => {
+  const { user } = useAuth()
+  const { toast } = useToast()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedLeadAssigner, setSelectedLeadAssigner] = useState<string>('')
+  const [leadAssigners, setLeadAssigners] = useState<any[]>([])
+  const [loadingLeadAssigners, setLoadingLeadAssigners] = useState(false)
+
+  useEffect(() => {
+    if (open && user) {
+      loadLeadAssigners()
+    }
+  }, [open, user])
+
+  const loadLeadAssigners = async () => {
+    if (!user) return;
+    
+    setLoadingLeadAssigners(true)
+    try {
+      // Get current user's company first
+      const { data: currentUserData, error: userError } = await supabase
+        .from('user_roles')
+        .select('company')
+        .eq('user_id', user.id)
+        .single()
+
+      if (userError) throw userError
+
+      // Fetch lead assigners from the same company
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('user_id, username, email, company')
+        .eq('role', 'lead_assigner')
+        .eq('company', currentUserData.company)
+        .order('username', { ascending: true })
+
+      if (error) throw error
+
+      setLeadAssigners(data || [])
+    } catch (error: any) {
+      console.error('Error loading lead assigners:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load lead assigners',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingLeadAssigners(false)
+    }
+  }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -63,19 +113,22 @@ const MerchantDataDialog = ({
         </DialogHeader>
         
         <div className="space-y-6">
-          <div className="space-y-2">
-            <Label>Select Lead Assigner</Label>
-            <Select value={selectedLeadAssigner} onValueChange={setSelectedLeadAssigner}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Lead Assigner" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="550e8400-e29b-41d4-a716-446655440001">Lead Assigner 1</SelectItem>
-                <SelectItem value="550e8400-e29b-41d4-a716-446655440002">Lead Assigner 2</SelectItem>
-                <SelectItem value="550e8400-e29b-41d4-a716-446655440003">Lead Assigner 3</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+           <div className="space-y-2">
+             <Label>Select Lead Assigner</Label>
+             <Select value={selectedLeadAssigner} onValueChange={setSelectedLeadAssigner}>
+               <SelectTrigger>
+                 <SelectValue placeholder="Select Lead Assigner" />
+               </SelectTrigger>
+               <SelectContent>
+                 {!isReassign && <SelectItem value="unassigned">Unassigned (Will be assigned later)</SelectItem>}
+                 {leadAssigners.map((assigner) => (
+                   <SelectItem key={assigner.user_id} value={assigner.user_id}>
+                     {assigner.username} ({assigner.email})
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+           </div>
 
           <div className="space-y-2">
             <Label htmlFor="merchant-file">Upload Merchant Excel File</Label>
