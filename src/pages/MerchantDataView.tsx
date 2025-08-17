@@ -45,6 +45,7 @@ const MerchantDataView = () => {
   const [loading, setLoading] = useState(true)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [showReassignDialog, setShowReassignDialog] = useState(false)
+  const [leadAssigners, setLeadAssigners] = useState<{ [key: string]: string }>({})
 
   useEffect(() => {
     if (formId && user) {
@@ -78,6 +79,29 @@ const MerchantDataView = () => {
       if (merchantsError) throw merchantsError
       setMerchantData(merchantsData || [])
 
+      // Load lead assigners names for display
+      if (merchantsData && merchantsData.length > 0) {
+        const uniqueLeadAssignerIds = [...new Set(merchantsData
+          .map(m => m.assigned_lead_assigner_id)
+          .filter(Boolean)
+        )]
+
+        if (uniqueLeadAssignerIds.length > 0) {
+          const { data: leadAssignersData, error: leadAssignersError } = await supabase
+            .from('user_roles')
+            .select('user_id, username')
+            .in('user_id', uniqueLeadAssignerIds)
+
+          if (!leadAssignersError && leadAssignersData) {
+            const leadAssignersMap = leadAssignersData.reduce((acc, la) => {
+              acc[la.user_id] = la.username
+              return acc
+            }, {} as { [key: string]: string })
+            setLeadAssigners(leadAssignersMap)
+          }
+        }
+      }
+
     } catch (error: any) {
       console.error('Error loading data:', error)
       toast({
@@ -103,11 +127,6 @@ const MerchantDataView = () => {
   }
 
   const getLeadAssignerName = (leadAssignerId?: string) => {
-    const leadAssigners: { [key: string]: string } = {
-      '550e8400-e29b-41d4-a716-446655440001': 'Lead Assigner 1',
-      '550e8400-e29b-41d4-a716-446655440002': 'Lead Assigner 2',
-      '550e8400-e29b-41d4-a716-446655440003': 'Lead Assigner 3'
-    }
     return leadAssignerId ? (leadAssigners[leadAssignerId] || 'Unknown') : 'Not Assigned'
   }
 
