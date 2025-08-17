@@ -60,10 +60,13 @@ const CPVMerchantStatus = () => {
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [selectedFormForStatus, setSelectedFormForStatus] = useState<CPVForm | null>(null)
   const [showMerchantDetails, setShowMerchantDetails] = useState(false)
+  const [leadAssigners, setLeadAssigners] = useState<any[]>([])
+  const [loadingLeadAssigners, setLoadingLeadAssigners] = useState(false)
 
   // Load CPV forms from Supabase
   useEffect(() => {
     loadCPVForms()
+    loadLeadAssigners()
   }, [user])
 
   const loadCPVForms = async () => {
@@ -136,6 +139,43 @@ const CPVMerchantStatus = () => {
       // Fallback to showing upload dialog
       setSelectedForm(form)
       setShowMerchantDetails(true)
+    }
+  }
+
+  const loadLeadAssigners = async () => {
+    if (!user) return;
+    
+    setLoadingLeadAssigners(true)
+    try {
+      // Get current user's company first
+      const { data: currentUserData, error: userError } = await supabase
+        .from('user_roles')
+        .select('company')
+        .eq('user_id', user.id)
+        .single()
+
+      if (userError) throw userError
+
+      // Fetch lead assigners from the same company
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('user_id, username, email, company')
+        .eq('role', 'lead_assigner')
+        .eq('company', currentUserData.company)
+        .order('username', { ascending: true })
+
+      if (error) throw error
+
+      setLeadAssigners(data || [])
+    } catch (error: any) {
+      console.error('Error loading lead assigners:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load lead assigners',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingLeadAssigners(false)
     }
   }
 
@@ -556,8 +596,11 @@ const CPVMerchantStatus = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Unassigned (Will be assigned later)</SelectItem>
-                    <SelectItem value="a1b2c3d4-e5f6-7890-abcd-ef1234567890">John Smith (Lead Assigner)</SelectItem>
-                    <SelectItem value="b2c3d4e5-f6g7-8901-bcde-f23456789012">Sarah Johnson (Lead Assigner)</SelectItem>
+                    {leadAssigners.map((assigner) => (
+                      <SelectItem key={assigner.user_id} value={assigner.user_id}>
+                        {assigner.username} ({assigner.email})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
