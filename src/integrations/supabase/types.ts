@@ -61,10 +61,12 @@ export type Database = {
       }
       cpv_merchant_status: {
         Row: {
+          assigned_cpv_agent_id: string | null
           assigned_lead_assigner_id: string | null
           assigned_on: string | null
           city: string
           cpv_agent: string | null
+          cpv_agent_assigned_on: string | null
           cpv_form_id: string
           created_at: string
           id: string
@@ -80,10 +82,12 @@ export type Database = {
           verification_status: string | null
         }
         Insert: {
+          assigned_cpv_agent_id?: string | null
           assigned_lead_assigner_id?: string | null
           assigned_on?: string | null
           city: string
           cpv_agent?: string | null
+          cpv_agent_assigned_on?: string | null
           cpv_form_id: string
           created_at?: string
           id?: string
@@ -99,10 +103,12 @@ export type Database = {
           verification_status?: string | null
         }
         Update: {
+          assigned_cpv_agent_id?: string | null
           assigned_lead_assigner_id?: string | null
           assigned_on?: string | null
           city?: string
           cpv_agent?: string | null
+          cpv_agent_assigned_on?: string | null
           cpv_form_id?: string
           created_at?: string
           id?: string

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
 import { AuthGate } from '@/components/AuthGate'
@@ -722,112 +722,505 @@ const CPVMerchantStatus = () => {
 
   const renderSuperAdminView = () => renderClientAdminView()
 
-  // Lead Assigner View - shows forms assigned to them
-  const renderLeadAssignerView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/dashboard')}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Assigned CPV Forms</h1>
-          <p className="text-muted-foreground">Manage CPV forms assigned to you for lead verification</p>
-        </div>
-      </div>
+  // Lead Assigner View - shows merchants assigned to them
+  const renderLeadAssignerView = () => {
+    const [assignedMerchants, setAssignedMerchants] = useState<any[]>([])
+    const [cpvAgents, setCPVAgents] = useState<any[]>([])
+    const [loadingMerchants, setLoadingMerchants] = useState(true)
+    const [loadingAgents, setLoadingAgents] = useState(false)
+    const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+    const [selectedMerchant, setSelectedMerchant] = useState<any>(null)
+    const [selectedAgent, setSelectedAgent] = useState<string>('')
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Assigned Forms</CardTitle>
-          <CardDescription>
-            CPV forms assigned to you for merchant lead management
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center p-8 text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-medium mb-2">No Forms Assigned</h3>
-            <p>You don't have any CPV forms assigned to you yet.</p>
+    const loadAssignedMerchants = useCallback(async () => {
+      if (!user) return
+      
+      setLoadingMerchants(true)
+      try {
+        const { data, error } = await supabase
+          .from('cpv_merchant_status')
+          .select(`
+            *,
+            cpv_forms:cpv_form_id (
+              name,
+              initiative
+            )
+          `)
+          .eq('assigned_lead_assigner_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        setAssignedMerchants(data || [])
+      } catch (error: any) {
+        console.error('Error loading assigned merchants:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to load assigned merchants',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoadingMerchants(false)
+      }
+    }, [user])
+
+    const loadCPVAgents = useCallback(async () => {
+      if (!user) return
+      
+      setLoadingAgents(true)
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('user_id, username, email')
+          .eq('role', 'cpv_agent')
+          .eq('created_by_user_id', user.id)
+          .order('username', { ascending: true })
+
+        if (error) throw error
+        setCPVAgents(data || [])
+      } catch (error: any) {
+        console.error('Error loading CPV agents:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to load CPV agents',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoadingAgents(false)
+      }
+    }, [user])
+
+    const assignToCPVAgent = async () => {
+      if (!selectedMerchant || !selectedAgent) return
+
+      try {
+        const { error } = await supabase
+          .from('cpv_merchant_status')
+          .update({
+            assigned_cpv_agent_id: selectedAgent,
+            cpv_agent_assigned_on: new Date().toISOString()
+          })
+          .eq('id', selectedMerchant.id)
+
+        if (error) throw error
+
+        toast({
+          title: 'Success',
+          description: 'Merchant assigned to CPV agent successfully',
+        })
+
+        setAssignDialogOpen(false)
+        setSelectedMerchant(null)
+        setSelectedAgent('')
+        loadAssignedMerchants()
+      } catch (error: any) {
+        console.error('Error assigning merchant:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to assign merchant to CPV agent',
+          variant: 'destructive',
+        })
+      }
+    }
+
+    useEffect(() => {
+      loadAssignedMerchants()
+      loadCPVAgents()
+    }, [loadAssignedMerchants, loadCPVAgents])
+
+    // Real-time updates
+    useEffect(() => {
+      if (!user) return
+
+      const channel = supabase
+        .channel('lead-assigner-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'cpv_merchant_status',
+            filter: `assigned_lead_assigner_id=eq.${user.id}`
+          },
+          () => {
+            loadAssignedMerchants()
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }, [user, loadAssignedMerchants])
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/dashboard')}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <h1 className="text-3xl font-bold tracking-tight">Assigned Merchants</h1>
+            <p className="text-muted-foreground">Manage merchants assigned to you and assign them to CPV agents</p>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-
-  // CPV Agent View - shows tabs for lead management
-  const renderCPVAgentView = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/dashboard')}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold tracking-tight">CPV Agent Dashboard</h1>
-          <p className="text-muted-foreground">Manage merchant verification leads</p>
         </div>
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lead Management</CardTitle>
-          <CardDescription>
-            Manage merchant leads assigned to you for verification
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="pending" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="pending" className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Pending Leads
-              </TabsTrigger>
-              <TabsTrigger value="completed" className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4" />
-                Completed Leads
-              </TabsTrigger>
-              <TabsTrigger value="rejected" className="flex items-center gap-2">
-                <XCircle className="h-4 w-4" />
-                Rejected Leads
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="pending" className="mt-6">
-              <div className="text-center p-8 text-muted-foreground">
-                <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
-                <h3 className="text-lg font-medium mb-2">No Pending Leads</h3>
-                <p>You don't have any pending leads to verify at the moment.</p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Assigned Merchants ({assignedMerchants.length})</CardTitle>
+            <CardDescription>
+              Merchants assigned to you for verification management
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingMerchants ? (
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            </TabsContent>
-            
-            <TabsContent value="completed" className="mt-6">
+            ) : assignedMerchants.length === 0 ? (
               <div className="text-center p-8 text-muted-foreground">
-                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-400" />
-                <h3 className="text-lg font-medium mb-2">No Completed Leads</h3>
-                <p>You haven't completed any lead verifications yet.</p>
+                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium mb-2">No Merchants Assigned</h3>
+                <p>You don't have any merchants assigned to you yet.</p>
               </div>
-            </TabsContent>
-            
-            <TabsContent value="rejected" className="mt-6">
-              <div className="text-center p-8 text-muted-foreground">
-                <XCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
-                <h3 className="text-lg font-medium mb-2">No Rejected Leads</h3>
-                <p>You haven't rejected any leads yet.</p>
+            ) : (
+              <div className="space-y-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Merchant Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>City, State</TableHead>
+                      <TableHead>Form</TableHead>
+                      <TableHead>CPV Agent</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {assignedMerchants.map((merchant) => (
+                      <TableRow key={merchant.id}>
+                        <TableCell className="font-medium">{merchant.merchant_name}</TableCell>
+                        <TableCell>{merchant.merchant_phone}</TableCell>
+                        <TableCell>{merchant.city}, {merchant.state}</TableCell>
+                        <TableCell>{merchant.cpv_forms?.name}</TableCell>
+                        <TableCell>
+                          {merchant.assigned_cpv_agent_id ? (
+                            <Badge variant="secondary">Assigned</Badge>
+                          ) : (
+                            <Badge variant="outline">Unassigned</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(merchant.verification_status)}
+                        </TableCell>
+                        <TableCell>
+                          {!merchant.assigned_cpv_agent_id && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedMerchant(merchant)
+                                setAssignDialogOpen(true)
+                              }}
+                            >
+                              Assign to Agent
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
-  )
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Assignment Dialog */}
+        <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Assign to CPV Agent</DialogTitle>
+              <DialogDescription>
+                Assign merchant "{selectedMerchant?.merchant_name}" to a CPV agent for verification
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Select CPV Agent</Label>
+                <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a CPV agent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cpvAgents.map((agent) => (
+                      <SelectItem key={agent.user_id} value={agent.user_id}>
+                        {agent.username} ({agent.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setAssignDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={assignToCPVAgent}
+                  disabled={!selectedAgent}
+                  className="flex-1"
+                >
+                  Assign
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+
+  // CPV Agent View - shows leads assigned to them
+  const renderCPVAgentView = () => {
+    const [assignedLeads, setAssignedLeads] = useState<any[]>([])
+    const [loadingLeads, setLoadingLeads] = useState(true)
+
+    const loadAssignedLeads = useCallback(async () => {
+      if (!user) return
+      
+      setLoadingLeads(true)
+      try {
+        const { data, error } = await supabase
+          .from('cpv_merchant_status')
+          .select(`
+            *,
+            cpv_forms:cpv_form_id (
+              name,
+              initiative
+            )
+          `)
+          .eq('assigned_cpv_agent_id', user.id)
+          .order('cpv_agent_assigned_on', { ascending: false })
+
+        if (error) throw error
+        setAssignedLeads(data || [])
+      } catch (error: any) {
+        console.error('Error loading assigned leads:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to load assigned leads',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoadingLeads(false)
+      }
+    }, [user])
+
+    const updateLeadStatus = async (leadId: string, newStatus: string) => {
+      try {
+        const { error } = await supabase
+          .from('cpv_merchant_status')
+          .update({ verification_status: newStatus })
+          .eq('id', leadId)
+
+        if (error) throw error
+
+        toast({
+          title: 'Success',
+          description: `Lead status updated to ${newStatus}`,
+        })
+
+        loadAssignedLeads()
+      } catch (error: any) {
+        console.error('Error updating lead status:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to update lead status',
+          variant: 'destructive',
+        })
+      }
+    }
+
+    useEffect(() => {
+      loadAssignedLeads()
+    }, [loadAssignedLeads])
+
+    // Real-time updates
+    useEffect(() => {
+      if (!user) return
+
+      const channel = supabase
+        .channel('cpv-agent-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'cpv_merchant_status',
+            filter: `assigned_cpv_agent_id=eq.${user.id}`
+          },
+          () => {
+            loadAssignedLeads()
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }, [user, loadAssignedLeads])
+
+    const pendingLeads = assignedLeads.filter(lead => lead.verification_status === 'pending')
+    const completedLeads = assignedLeads.filter(lead => lead.verification_status === 'verified')
+    const rejectedLeads = assignedLeads.filter(lead => lead.verification_status === 'rejected')
+
+    const renderLeadTable = (leads: any[], showActions = false) => (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Merchant Name</TableHead>
+            <TableHead>Phone</TableHead>
+            <TableHead>Address</TableHead>
+            <TableHead>Form</TableHead>
+            <TableHead>Assigned On</TableHead>
+            {showActions && <TableHead>Actions</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {leads.map((lead) => (
+            <TableRow key={lead.id}>
+              <TableCell className="font-medium">{lead.merchant_name}</TableCell>
+              <TableCell>{lead.merchant_phone}</TableCell>
+              <TableCell>{lead.merchant_address}</TableCell>
+              <TableCell>{lead.cpv_forms?.name}</TableCell>
+              <TableCell>
+                {lead.cpv_agent_assigned_on ? 
+                  new Date(lead.cpv_agent_assigned_on).toLocaleDateString() : 
+                  'N/A'
+                }
+              </TableCell>
+              {showActions && (
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateLeadStatus(lead.id, 'verified')}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Verify
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => updateLeadStatus(lead.id, 'rejected')}
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/dashboard')}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <h1 className="text-3xl font-bold tracking-tight">CPV Agent Dashboard</h1>
+            <p className="text-muted-foreground">Manage merchant verification leads assigned to you</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Lead Management</CardTitle>
+            <CardDescription>
+              Manage merchant leads assigned to you for verification
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="pending" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="pending" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Pending Leads ({pendingLeads.length})
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Completed Leads ({completedLeads.length})
+                </TabsTrigger>
+                <TabsTrigger value="rejected" className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4" />
+                  Rejected Leads ({rejectedLeads.length})
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="pending" className="mt-6">
+                {loadingLeads ? (
+                  <div className="flex justify-center p-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : pendingLeads.length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground">
+                    <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
+                    <h3 className="text-lg font-medium mb-2">No Pending Leads</h3>
+                    <p>You don't have any pending leads to verify at the moment.</p>
+                  </div>
+                ) : (
+                  renderLeadTable(pendingLeads, true)
+                )}
+              </TabsContent>
+              
+              <TabsContent value="completed" className="mt-6">
+                {completedLeads.length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-400" />
+                    <h3 className="text-lg font-medium mb-2">No Completed Leads</h3>
+                    <p>You haven't completed any lead verifications yet.</p>
+                  </div>
+                ) : (
+                  renderLeadTable(completedLeads)
+                )}
+              </TabsContent>
+              
+              <TabsContent value="rejected" className="mt-6">
+                {rejectedLeads.length === 0 ? (
+                  <div className="text-center p-8 text-muted-foreground">
+                    <XCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
+                    <h3 className="text-lg font-medium mb-2">No Rejected Leads</h3>
+                    <p>You haven't rejected any leads yet.</p>
+                  </div>
+                ) : (
+                  renderLeadTable(rejectedLeads)
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const renderContent = () => {
     switch (userRole) {
