@@ -65,9 +65,15 @@ const CPVMerchantStatus = () => {
 
   // Load CPV forms from Supabase
   useEffect(() => {
-    loadCPVForms()
-    loadLeadAssigners()
-  }, [user])
+    // Only load CPV forms for Client Admin and Super Admin
+    // Lead Assigners and CPV Agents don't need to load forms
+    if (userRole === 'client_admin' || userRole === 'super_admin') {
+      loadCPVForms()
+      loadLeadAssigners()
+    } else {
+      setLoading(false)
+    }
+  }, [user, userRole])
 
   const loadCPVForms = async () => {
     if (!user) return;
