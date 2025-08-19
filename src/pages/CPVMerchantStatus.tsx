@@ -57,6 +57,7 @@ const CPVMerchantStatus = () => {
   console.log('User:', user)
   console.log('UserRole:', userRole)
   
+  // Main component state
   const [cpvForms, setCPVForms] = useState<CPVForm[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedForm, setSelectedForm] = useState<CPVForm | null>(null)
@@ -66,6 +67,19 @@ const CPVMerchantStatus = () => {
   const [showMerchantDetails, setShowMerchantDetails] = useState(false)
   const [leadAssigners, setLeadAssigners] = useState<any[]>([])
   const [loadingLeadAssigners, setLoadingLeadAssigners] = useState(false)
+  
+  // Lead Assigner state
+  const [assignedMerchants, setAssignedMerchants] = useState<any[]>([])
+  const [cpvAgents, setCPVAgents] = useState<any[]>([])
+  const [loadingMerchants, setLoadingMerchants] = useState(true)
+  const [loadingAgents, setLoadingAgents] = useState(false)
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [selectedMerchant, setSelectedMerchant] = useState<any>(null)
+  const [selectedAgent, setSelectedAgent] = useState<string>('')
+  
+  // CPV Agent state
+  const [agentLeads, setAgentLeads] = useState<any[]>([])
+  const [loadingAgentLeads, setLoadingAgentLeads] = useState(true)
 
   // Load CPV forms from Supabase
   useEffect(() => {
@@ -746,14 +760,6 @@ const CPVMerchantStatus = () => {
   const renderLeadAssignerView = () => {
     console.log('=== renderLeadAssignerView called ===')
     console.log('User in Lead Assigner view:', user)
-    
-    const [assignedMerchants, setAssignedMerchants] = useState<any[]>([])
-    const [cpvAgents, setCPVAgents] = useState<any[]>([])
-    const [loadingMerchants, setLoadingMerchants] = useState(true)
-    const [loadingAgents, setLoadingAgents] = useState(false)
-    const [assignDialogOpen, setAssignDialogOpen] = useState(false)
-    const [selectedMerchant, setSelectedMerchant] = useState<any>(null)
-    const [selectedAgent, setSelectedAgent] = useState<string>('')
 
     const loadAssignedMerchants = useCallback(async () => {
       if (!user) return
@@ -1013,13 +1019,11 @@ const CPVMerchantStatus = () => {
 
   // CPV Agent View - shows leads assigned to them
   const renderCPVAgentView = () => {
-    const [assignedLeads, setAssignedLeads] = useState<any[]>([])
-    const [loadingLeads, setLoadingLeads] = useState(true)
 
     const loadAssignedLeads = useCallback(async () => {
       if (!user) return
       
-      setLoadingLeads(true)
+      setLoadingAgentLeads(true)
       try {
         const { data, error } = await supabase
           .from('cpv_merchant_status')
@@ -1034,7 +1038,7 @@ const CPVMerchantStatus = () => {
           .order('cpv_agent_assigned_on', { ascending: false })
 
         if (error) throw error
-        setAssignedLeads(data || [])
+        setAgentLeads(data || [])
       } catch (error: any) {
         console.error('Error loading assigned leads:', error)
         toast({
@@ -1043,7 +1047,7 @@ const CPVMerchantStatus = () => {
           variant: 'destructive',
         })
       } finally {
-        setLoadingLeads(false)
+        setLoadingAgentLeads(false)
       }
     }, [user])
 
@@ -1101,9 +1105,9 @@ const CPVMerchantStatus = () => {
       }
     }, [user, loadAssignedLeads])
 
-    const pendingLeads = assignedLeads.filter(lead => lead.verification_status === 'pending')
-    const completedLeads = assignedLeads.filter(lead => lead.verification_status === 'verified')
-    const rejectedLeads = assignedLeads.filter(lead => lead.verification_status === 'rejected')
+    const pendingLeads = agentLeads.filter(lead => lead.verification_status === 'pending')
+    const completedLeads = agentLeads.filter(lead => lead.verification_status === 'verified')
+    const rejectedLeads = agentLeads.filter(lead => lead.verification_status === 'rejected')
 
     const renderLeadTable = (leads: any[], showActions = false) => (
       <Table>
@@ -1200,7 +1204,7 @@ const CPVMerchantStatus = () => {
               </TabsList>
               
               <TabsContent value="pending" className="mt-6">
-                {loadingLeads ? (
+                {loadingAgentLeads ? (
                   <div className="flex justify-center p-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
