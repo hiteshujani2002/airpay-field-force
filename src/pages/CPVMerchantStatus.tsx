@@ -1279,25 +1279,6 @@ const CPVMerchantStatus = () => {
   console.log('UserRole:', userRole)
   console.log('User:', user)
 
-  // Add a fallback while auth is loading
-  if (!user || !userRole) {
-    console.log('=== User or UserRole not available yet ===')
-    return (
-      <AuthGate>
-        <div className="min-h-screen bg-background">
-          <div className="container mx-auto px-4 py-8">
-            <div className="flex justify-center items-center min-h-[400px]">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading user information...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </AuthGate>
-    )
-  }
-
   return (
     <AuthGate>
       <div className="min-h-screen bg-background">
