@@ -53,6 +53,10 @@ const CPVMerchantStatus = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
   
+  console.log('=== CPVMerchantStatus Component Debug ===')
+  console.log('User:', user)
+  console.log('UserRole:', userRole)
+  
   const [cpvForms, setCPVForms] = useState<CPVForm[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedForm, setSelectedForm] = useState<CPVForm | null>(null)
@@ -65,14 +69,23 @@ const CPVMerchantStatus = () => {
 
   // Load CPV forms from Supabase
   useEffect(() => {
+    console.log('=== Main useEffect triggered ===')
+    console.log('UserRole:', userRole)
+    console.log('User:', user)
+    console.log('Loading state:', loading)
+    
     // Only load CPV forms for Client Admin and Super Admin
     // Lead Assigners and CPV Agents don't need to load forms but should set loading to false
     if (userRole === 'client_admin' || userRole === 'super_admin') {
+      console.log('Loading forms for Client Admin/Super Admin')
       loadCPVForms()
       loadLeadAssigners()
     } else if (userRole && user) {
       // For other roles, just set loading to false once we have the user role
+      console.log('Setting loading to false for other roles')
       setLoading(false)
+    } else {
+      console.log('No action taken - waiting for userRole and user')
     }
   }, [user, userRole])
 
@@ -731,6 +744,9 @@ const CPVMerchantStatus = () => {
 
   // Lead Assigner View - shows merchants assigned to them
   const renderLeadAssignerView = () => {
+    console.log('=== renderLeadAssignerView called ===')
+    console.log('User in Lead Assigner view:', user)
+    
     const [assignedMerchants, setAssignedMerchants] = useState<any[]>([])
     const [cpvAgents, setCPVAgents] = useState<any[]>([])
     const [loadingMerchants, setLoadingMerchants] = useState(true)
@@ -1230,16 +1246,25 @@ const CPVMerchantStatus = () => {
   }
 
   const renderContent = () => {
+    console.log('=== renderContent called ===')
+    console.log('Current userRole:', userRole)
+    console.log('About to switch on userRole...')
+    
     switch (userRole) {
       case 'client_admin':
+        console.log('Rendering Client Admin view')
         return renderClientAdminView()
       case 'super_admin':
+        console.log('Rendering Super Admin view')
         return renderSuperAdminView()
       case 'lead_assigner':
+        console.log('Rendering Lead Assigner view')
         return renderLeadAssignerView()
       case 'cpv_agent':
+        console.log('Rendering CPV Agent view')
         return renderCPVAgentView()
       default:
+        console.log('Rendering default Access Denied view for role:', userRole)
         return (
           <div className="text-center p-8">
             <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
