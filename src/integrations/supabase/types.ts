@@ -123,7 +123,15 @@ export type Database = {
           verification_file_url?: string | null
           verification_status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cpv_merchant_status_cpv_form_id_fkey"
+            columns: ["cpv_form_id"]
+            isOneToOne: false
+            referencedRelation: "cpv_forms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       entities: {
         Row: {
