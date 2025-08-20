@@ -72,6 +72,8 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   // Fetch entities and current user company on component mount
   useEffect(() => {
     if (open && user) {
+      console.log('UserCreateDialog - Fetching data for user:', user.id)
+      console.log('UserCreateDialog - Current userRole:', userRole)
       fetchEntities();
       fetchCurrentUserCompany();
     }
@@ -93,6 +95,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
 
   const fetchCurrentUserCompany = async () => {
     try {
+      console.log('UserCreateDialog - Fetching current user company for user:', user?.id)
       const { data, error } = await supabase
         .from('user_roles')
         .select('company')
@@ -100,6 +103,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
         .single();
 
       if (error) throw error;
+      console.log('UserCreateDialog - Current user company:', data?.company)
       setCurrentUserCompany(data?.company || "");
     } catch (error) {
       console.error('Error fetching current user company:', error);
@@ -171,7 +175,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       newErrors.role = "Role is required";
     }
 
-    if (!formData.company) {
+    if (!formData.company && !(userRole === 'lead_assigner' && formData.role === 'cpv_agent')) {
       newErrors.company = "Company is required";
     }
 
@@ -209,6 +213,11 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('UserCreateDialog - Form submission started')
+    console.log('UserCreateDialog - Form data:', formData)
+    console.log('UserCreateDialog - UserRole:', userRole)
+    console.log('UserCreateDialog - CurrentUserCompany:', currentUserCompany)
+    
     if (!validateForm()) {
       toast({
         title: "Validation Error",
@@ -218,10 +227,13 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       return;
     }
 
+    const finalCompany = (userRole === 'lead_assigner' && formData.role === 'cpv_agent') ? currentUserCompany : formData.company
+    console.log('UserCreateDialog - Final company to be sent:', finalCompany)
+
     onCreateUser({
       username: formData.username,
       role: formData.role as UserRole,
-      company: formData.company,
+      company: finalCompany,
       email: formData.email,
       contactNumber: formData.contactNumber,
       taggedToCompany: shouldShowTaggedToCompany() ? formData.taggedToCompany : (userRole === 'lead_assigner' ? currentUserCompany : undefined),
@@ -250,6 +262,9 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   };
 
   const handleRoleChange = (role: string) => {
+    console.log('UserCreateDialog - Role changed to:', role, 'by userRole:', userRole)
+    console.log('UserCreateDialog - Current user company:', currentUserCompany)
+    
     setFormData(prev => ({ 
       ...prev, 
       role: role as UserRole,
@@ -257,8 +272,12 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       taggedToCompany: "",
       state: "",
       pinCode: "",
-      company: "" // Reset company when role changes
+      // Auto-set company for Lead Assigner creating CPV Agent
+      company: (userRole === 'lead_assigner' && role === 'cpv_agent') ? currentUserCompany : ""
     }));
+    
+    console.log('UserCreateDialog - Company set to:', (userRole === 'lead_assigner' && role === 'cpv_agent') ? currentUserCompany : "")
+    
     if (errors.role) {
       setErrors(prev => ({ ...prev, role: "" }));
     }
@@ -329,27 +348,29 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
             )}
           </div>
 
-          {/* Company */}
-          <div className="space-y-2">
-            <Label htmlFor="company">
-              {formData.role === "lead_assigner" || formData.role === "cpv_agent" ? "Agency *" : "Company/Agency *"}
-            </Label>
-            <Select value={formData.company} onValueChange={(value) => handleInputChange("company", value)}>
-              <SelectTrigger className={errors.company ? "border-destructive" : ""}>
-                <SelectValue placeholder="Select company" />
-              </SelectTrigger>
-              <SelectContent>
-                {getCompaniesForDropdown().map((company) => (
-                  <SelectItem key={company.value} value={company.value}>
-                    {company.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.company && (
-              <p className="text-sm text-destructive">{errors.company}</p>
-            )}
-          </div>
+          {/* Company - Hide for Lead Assigner creating CPV Agent */}
+          {!(userRole === 'lead_assigner' && formData.role === 'cpv_agent') && (
+            <div className="space-y-2">
+              <Label htmlFor="company">
+                {formData.role === "lead_assigner" || formData.role === "cpv_agent" ? "Agency *" : "Company/Agency *"}
+              </Label>
+              <Select value={formData.company} onValueChange={(value) => handleInputChange("company", value)}>
+                <SelectTrigger className={errors.company ? "border-destructive" : ""}>
+                  <SelectValue placeholder="Select company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getCompaniesForDropdown().map((company) => (
+                    <SelectItem key={company.value} value={company.value}>
+                      {company.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.company && (
+                <p className="text-sm text-destructive">{errors.company}</p>
+              )}
+            </div>
+          )}
 
           {/* Email */}
           <div className="space-y-2">
