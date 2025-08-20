@@ -1105,9 +1105,9 @@ const CPVMerchantStatus = () => {
       }
     }, [user, loadAssignedLeads])
 
-    const pendingLeads = agentLeads.filter(lead => lead.verification_status === 'pending')
-    const completedLeads = agentLeads.filter(lead => lead.verification_status === 'verified')
-    const rejectedLeads = agentLeads.filter(lead => lead.verification_status === 'rejected')
+    const pendingLeads = (agentLeads || []).filter(lead => lead.verification_status === 'pending')
+    const completedLeads = (agentLeads || []).filter(lead => lead.verification_status === 'verified')
+    const rejectedLeads = (agentLeads || []).filter(lead => lead.verification_status === 'rejected')
 
     const renderLeadTable = (leads: any[], showActions = false) => (
       <Table>
