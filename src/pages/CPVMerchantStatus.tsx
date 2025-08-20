@@ -81,6 +81,160 @@ const CPVMerchantStatus = () => {
   const [agentLeads, setAgentLeads] = useState<any[]>([])
   const [loadingAgentLeads, setLoadingAgentLeads] = useState(true)
 
+  // Move useCallback hooks to component level
+  const loadAssignedMerchants = useCallback(async () => {
+    if (!user || userRole !== 'lead_assigner') return
+    
+    setLoadingMerchants(true)
+    try {
+      const { data, error } = await supabase
+        .from('cpv_merchant_status')
+        .select(`
+          *,
+          cpv_forms:cpv_form_id (
+            name,
+            initiative
+          )
+        `)
+        .eq('assigned_lead_assigner_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setAssignedMerchants(data || [])
+    } catch (error: any) {
+      console.error('Error loading assigned merchants:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load assigned merchants',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingMerchants(false)
+    }
+  }, [user, userRole, toast])
+
+  const loadCPVAgents = useCallback(async () => {
+    if (!user || userRole !== 'lead_assigner') return
+    
+    setLoadingAgents(true)
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('user_id, username, email')
+        .eq('role', 'cpv_agent')
+        .eq('created_by_user_id', user.id)
+        .order('username', { ascending: true })
+
+      if (error) throw error
+      setCPVAgents(data || [])
+    } catch (error: any) {
+      console.error('Error loading CPV agents:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load CPV agents',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingAgents(false)
+    }
+  }, [user, userRole, toast])
+
+  const loadAgentLeads = useCallback(async () => {
+    if (!user || userRole !== 'cpv_agent') return
+    
+    setLoadingAgentLeads(true)
+    try {
+      const { data, error } = await supabase
+        .from('cpv_merchant_status')
+        .select(`
+          *,
+          cpv_forms:cpv_form_id (
+            name,
+            initiative
+          )
+        `)
+        .eq('assigned_cpv_agent_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setAgentLeads(data || [])
+    } catch (error: any) {
+      console.error('Error loading agent leads:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load leads',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingAgentLeads(false)
+    }
+  }, [user, userRole, toast])
+
+  // Lead Assigner useEffect
+  useEffect(() => {
+    if (userRole === 'lead_assigner') {
+      loadAssignedMerchants()
+      loadCPVAgents()
+    }
+  }, [userRole, loadAssignedMerchants, loadCPVAgents])
+
+  // CPV Agent useEffect
+  useEffect(() => {
+    if (userRole === 'cpv_agent') {
+      loadAgentLeads()
+    }
+  }, [userRole, loadAgentLeads])
+
+  // Real-time updates for Lead Assigner
+  useEffect(() => {
+    if (!user || userRole !== 'lead_assigner') return
+
+    const channel = supabase
+      .channel('lead-assigner-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cpv_merchant_status',
+          filter: `assigned_lead_assigner_id=eq.${user.id}`
+        },
+        () => {
+          loadAssignedMerchants()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, userRole, loadAssignedMerchants])
+
+  // Real-time updates for CPV Agent
+  useEffect(() => {
+    if (!user || userRole !== 'cpv_agent') return
+
+    const channel = supabase
+      .channel('cpv-agent-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cpv_merchant_status',
+          filter: `assigned_cpv_agent_id=eq.${user.id}`
+        },
+        () => {
+          loadAgentLeads()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, userRole, loadAgentLeads])
+
   // Load CPV forms from Supabase
   useEffect(() => {
     console.log('=== Main useEffect triggered ===')
@@ -761,63 +915,6 @@ const CPVMerchantStatus = () => {
     console.log('=== renderLeadAssignerView called ===')
     console.log('User in Lead Assigner view:', user)
 
-    const loadAssignedMerchants = useCallback(async () => {
-      if (!user) return
-      
-      setLoadingMerchants(true)
-      try {
-        const { data, error } = await supabase
-          .from('cpv_merchant_status')
-          .select(`
-            *,
-            cpv_forms:cpv_form_id (
-              name,
-              initiative
-            )
-          `)
-          .eq('assigned_lead_assigner_id', user.id)
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-        setAssignedMerchants(data || [])
-      } catch (error: any) {
-        console.error('Error loading assigned merchants:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to load assigned merchants',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoadingMerchants(false)
-      }
-    }, [user, toast])
-
-    const loadCPVAgents = useCallback(async () => {
-      if (!user) return
-      
-      setLoadingAgents(true)
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('user_id, username, email')
-          .eq('role', 'cpv_agent')
-          .eq('created_by_user_id', user.id)
-          .order('username', { ascending: true })
-
-        if (error) throw error
-        setCPVAgents(data || [])
-      } catch (error: any) {
-        console.error('Error loading CPV agents:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to load CPV agents',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoadingAgents(false)
-      }
-    }, [user, toast])
-
     const assignToCPVAgent = async () => {
       if (!selectedMerchant || !selectedAgent) return
 
@@ -851,35 +948,6 @@ const CPVMerchantStatus = () => {
       }
     }
 
-    useEffect(() => {
-      loadAssignedMerchants()
-      loadCPVAgents()
-    }, [loadAssignedMerchants, loadCPVAgents])
-
-    // Real-time updates
-    useEffect(() => {
-      if (!user) return
-
-      const channel = supabase
-        .channel('lead-assigner-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'cpv_merchant_status',
-            filter: `assigned_lead_assigner_id=eq.${user.id}`
-          },
-          () => {
-            loadAssignedMerchants()
-          }
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }, [user, loadAssignedMerchants])
 
     return (
       <div className="space-y-6">
@@ -1020,37 +1088,6 @@ const CPVMerchantStatus = () => {
   // CPV Agent View - shows leads assigned to them
   const renderCPVAgentView = () => {
 
-    const loadAssignedLeads = useCallback(async () => {
-      if (!user) return
-      
-      setLoadingAgentLeads(true)
-      try {
-        const { data, error } = await supabase
-          .from('cpv_merchant_status')
-          .select(`
-            *,
-            cpv_forms:cpv_form_id (
-              name,
-              initiative
-            )
-          `)
-          .eq('assigned_cpv_agent_id', user.id)
-          .order('cpv_agent_assigned_on', { ascending: false })
-
-        if (error) throw error
-        setAgentLeads(data || [])
-      } catch (error: any) {
-        console.error('Error loading assigned leads:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to load assigned leads',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoadingAgentLeads(false)
-      }
-    }, [user, toast])
-
     const updateLeadStatus = async (leadId: string, newStatus: string) => {
       try {
         const { error } = await supabase
@@ -1065,7 +1102,7 @@ const CPVMerchantStatus = () => {
           description: `Lead status updated to ${newStatus}`,
         })
 
-        loadAssignedLeads()
+        loadAgentLeads()
       } catch (error: any) {
         console.error('Error updating lead status:', error)
         toast({
@@ -1075,35 +1112,6 @@ const CPVMerchantStatus = () => {
         })
       }
     }
-
-    useEffect(() => {
-      loadAssignedLeads()
-    }, [loadAssignedLeads])
-
-    // Real-time updates
-    useEffect(() => {
-      if (!user) return
-
-      const channel = supabase
-        .channel('cpv-agent-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'cpv_merchant_status',
-            filter: `assigned_cpv_agent_id=eq.${user.id}`
-          },
-          () => {
-            loadAssignedLeads()
-          }
-        )
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(channel)
-      }
-    }, [user, loadAssignedLeads])
 
     const pendingLeads = (agentLeads || []).filter(lead => lead.verification_status === 'pending')
     const completedLeads = (agentLeads || []).filter(lead => lead.verification_status === 'verified')
