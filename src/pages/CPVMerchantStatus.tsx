@@ -790,7 +790,7 @@ const CPVMerchantStatus = () => {
       } finally {
         setLoadingMerchants(false)
       }
-    }, [user])
+    }, [user, toast])
 
     const loadCPVAgents = useCallback(async () => {
       if (!user) return
@@ -816,7 +816,7 @@ const CPVMerchantStatus = () => {
       } finally {
         setLoadingAgents(false)
       }
-    }, [user])
+    }, [user, toast])
 
     const assignToCPVAgent = async () => {
       if (!selectedMerchant || !selectedAgent) return
@@ -1049,7 +1049,7 @@ const CPVMerchantStatus = () => {
       } finally {
         setLoadingAgentLeads(false)
       }
-    }, [user])
+    }, [user, toast])
 
     const updateLeadStatus = async (leadId: string, newStatus: string) => {
       try {
