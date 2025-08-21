@@ -489,6 +489,23 @@ const CPVMerchantStatus = () => {
 
       console.log('Upload successful! Inserted records:', insertedData)
 
+      // Update CPV form to assign it to the Lead Assigner
+      if (leadAssignerId && leadAssignerId !== 'unassigned') {
+        console.log('Assigning CPV form to Lead Assigner:', leadAssignerId)
+        const { error: formUpdateError } = await supabase
+          .from('cpv_forms')
+          .update({ assigned_lead_assigner_id: leadAssignerId })
+          .eq('id', selectedForm.id)
+          .eq('user_id', user.id)
+
+        if (formUpdateError) {
+          console.error('Error updating CPV form assignment:', formUpdateError)
+          // Don't throw error here as merchant data was uploaded successfully
+        } else {
+          console.log('CPV form assigned to Lead Assigner successfully')
+        }
+      }
+
       toast({
         title: 'Success',
         description: `${merchantRecords.length} merchants uploaded and assigned successfully`,

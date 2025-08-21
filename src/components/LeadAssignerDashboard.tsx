@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Eye, MoreHorizontal } from 'lucide-react'
+import { Eye, MoreHorizontal, ArrowLeft } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { format } from 'date-fns'
@@ -167,6 +167,16 @@ const LeadAssignerDashboard = () => {
 
   return (
     <div className="container mx-auto p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="outline"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>CPV Forms Dashboard</CardTitle>
