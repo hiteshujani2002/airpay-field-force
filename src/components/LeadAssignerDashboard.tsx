@@ -36,6 +36,32 @@ const LeadAssignerDashboard = () => {
     }
   }, [user])
 
+  // Real-time updates for Lead Assigner assignments
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel('lead-assigner-form-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cpv_merchant_status',
+          filter: `assigned_lead_assigner_id=eq.${user.id}`
+        },
+        () => {
+          console.log('Real-time update detected for Lead Assigner assignments')
+          loadAssignedForms()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
   const loadAssignedForms = async () => {
     if (!user) return
 
@@ -43,7 +69,31 @@ const LeadAssignerDashboard = () => {
     try {
       console.log('Loading CPV forms for Lead Assigner:', user.id)
       
-      // Get CPV forms directly assigned to this lead assigner
+      // Get CPV forms that have merchants assigned to this lead assigner
+      // We need to find forms that have merchant data assigned to this user
+      const { data: merchantAssignments, error: merchantError } = await supabase
+        .from('cpv_merchant_status')
+        .select('cpv_form_id')
+        .eq('assigned_lead_assigner_id', user.id)
+
+      if (merchantError) {
+        console.error('Error fetching merchant assignments:', merchantError)
+        throw merchantError
+      }
+
+      console.log('Found merchant assignments:', merchantAssignments)
+
+      if (!merchantAssignments || merchantAssignments.length === 0) {
+        console.log('No merchant assignments found for lead assigner')
+        setAssignedForms([])
+        return
+      }
+
+      // Get unique form IDs
+      const formIds = [...new Set(merchantAssignments.map(m => m.cpv_form_id))]
+      console.log('Unique form IDs:', formIds)
+
+      // Get CPV forms for these assignments
       const { data: formsData, error: formsError } = await supabase
         .from('cpv_forms')
         .select(`
@@ -55,7 +105,7 @@ const LeadAssignerDashboard = () => {
           updated_at,
           user_id
         `)
-        .eq('assigned_lead_assigner_id', user.id)
+        .in('id', formIds)
 
       if (formsError) {
         console.error('Error fetching CPV forms:', formsError)
@@ -71,11 +121,11 @@ const LeadAssignerDashboard = () => {
       }
 
       // Get the first assignment date for each form from merchant status
-      const formIds = formsData.map(form => form.id)
+      const assignedFormIds = formsData.map(form => form.id)
       const { data: merchantStatusData, error: statusError } = await supabase
         .from('cpv_merchant_status')
         .select('cpv_form_id, assigned_on, uploaded_by_user_id')
-        .in('cpv_form_id', formIds)
+        .in('cpv_form_id', assignedFormIds)
         .eq('assigned_lead_assigner_id', user.id)
         .order('assigned_on', { ascending: true })
 

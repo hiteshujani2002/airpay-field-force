@@ -490,11 +490,24 @@ const CPVMerchantStatus = () => {
       console.log('Upload successful! Inserted records:', insertedData)
 
       // Update CPV form to assign it to the Lead Assigner
-      if (leadAssignerId && leadAssignerId !== 'unassigned') {
-        console.log('Assigning CPV form to Lead Assigner:', leadAssignerId)
+      // Get unique Lead Assigner IDs from the inserted data
+      const uniqueLeadAssignerIds = [...new Set(
+        merchantRecords
+          .map(record => record.assigned_lead_assigner_id)
+          .filter(id => id && id !== 'unassigned')
+      )]
+
+      console.log('Unique Lead Assigner IDs found:', uniqueLeadAssignerIds)
+
+      if (uniqueLeadAssignerIds.length > 0) {
+        // For simplicity, assign the form to the first Lead Assigner
+        // In a more complex scenario, you might want to handle multiple assignments differently
+        const primaryLeadAssignerId = uniqueLeadAssignerIds[0]
+        
+        console.log('Assigning CPV form to primary Lead Assigner:', primaryLeadAssignerId)
         const { error: formUpdateError } = await supabase
           .from('cpv_forms')
-          .update({ assigned_lead_assigner_id: leadAssignerId })
+          .update({ assigned_lead_assigner_id: primaryLeadAssignerId })
           .eq('id', selectedForm.id)
           .eq('user_id', user.id)
 
