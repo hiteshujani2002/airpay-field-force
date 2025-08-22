@@ -67,7 +67,9 @@ const LeadAssignerDashboard = () => {
 
     setLoading(true)
     try {
-      console.log('Loading CPV forms for Lead Assigner:', user.id)
+      console.log('=== Loading CPV forms for Lead Assigner ===')
+      console.log('User ID:', user.id)
+      console.log('User email:', user.email)
       
       // Get CPV forms that have merchants assigned to this lead assigner
       // We need to find forms that have merchant data assigned to this user
@@ -85,7 +87,42 @@ const LeadAssignerDashboard = () => {
 
       if (!merchantAssignments || merchantAssignments.length === 0) {
         console.log('No merchant assignments found for lead assigner')
-        setAssignedForms([])
+        console.log('Trying alternative approach - checking cpv_forms directly...')
+        
+        // Fallback: Try to get forms that might be directly assigned
+        const { data: directForms, error: directError } = await supabase
+          .from('cpv_forms')
+          .select(`
+            id,
+            name,
+            initiative,
+            current_status,
+            created_at,
+            updated_at,
+            user_id
+          `)
+          .eq('assigned_lead_assigner_id', user.id)
+
+        console.log('Direct form assignment results:', { directForms, directError })
+        
+        if (directForms && directForms.length > 0) {
+          console.log('Found directly assigned forms:', directForms)
+          // Process these forms without merchant assignment data
+          const formsArray = directForms.map(form => ({
+            id: form.id,
+            name: form.name,
+            initiative: form.initiative,
+            current_status: form.current_status,
+            created_at: form.created_at,
+            updated_at: form.updated_at,
+            assigned_by: form.user_id,
+            assigned_by_username: 'Unknown',
+            assigned_on: form.updated_at
+          }))
+          setAssignedForms(formsArray)
+        } else {
+          setAssignedForms([])
+        }
         return
       }
 
