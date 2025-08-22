@@ -41,65 +41,90 @@ const LeadAssignerDashboard = () => {
 
     setLoading(true)
     try {
-      // Get all CPV forms that have merchants assigned to this lead assigner
-      const { data: merchantData, error } = await supabase
-        .from('cpv_merchant_status')
+      console.log('Loading CPV forms for Lead Assigner:', user.id)
+      
+      // Get CPV forms directly assigned to this lead assigner
+      const { data: formsData, error: formsError } = await supabase
+        .from('cpv_forms')
         .select(`
-          cpv_form_id,
-          assigned_on,
-          uploaded_by_user_id,
-          cpv_forms:cpv_form_id (
-            id,
-            name,
-            initiative,
-            current_status,
-            created_at,
-            updated_at
-          )
+          id,
+          name,
+          initiative,
+          current_status,
+          created_at,
+          updated_at,
+          user_id
         `)
         .eq('assigned_lead_assigner_id', user.id)
 
-      if (error) throw error
+      if (formsError) {
+        console.error('Error fetching CPV forms:', formsError)
+        throw formsError
+      }
 
-      // Group by form and get unique forms
-      const uniqueForms = new Map()
-      
-      for (const item of merchantData || []) {
-        if (item.cpv_forms) {
-          const formId = item.cpv_forms.id
-          if (!uniqueForms.has(formId)) {
-            uniqueForms.set(formId, {
-              id: item.cpv_forms.id,
-              name: item.cpv_forms.name,
-              initiative: item.cpv_forms.initiative,
-              current_status: item.cpv_forms.current_status,
-              created_at: item.cpv_forms.created_at,
-              updated_at: item.cpv_forms.updated_at,
-              assigned_by: item.uploaded_by_user_id,
-              assigned_on: item.assigned_on
+      console.log('Found CPV forms:', formsData)
+
+      if (!formsData || formsData.length === 0) {
+        console.log('No CPV forms found for lead assigner')
+        setAssignedForms([])
+        return
+      }
+
+      // Get the first assignment date for each form from merchant status
+      const formIds = formsData.map(form => form.id)
+      const { data: merchantStatusData, error: statusError } = await supabase
+        .from('cpv_merchant_status')
+        .select('cpv_form_id, assigned_on, uploaded_by_user_id')
+        .in('cpv_form_id', formIds)
+        .eq('assigned_lead_assigner_id', user.id)
+        .order('assigned_on', { ascending: true })
+
+      if (statusError) {
+        console.error('Error fetching merchant status:', statusError)
+      }
+
+      // Create a map of form assignments
+      const assignmentMap = new Map()
+      if (merchantStatusData) {
+        merchantStatusData.forEach(status => {
+          if (!assignmentMap.has(status.cpv_form_id)) {
+            assignmentMap.set(status.cpv_form_id, {
+              assigned_on: status.assigned_on,
+              assigned_by: status.uploaded_by_user_id
             })
           }
-        }
+        })
       }
 
-      const formsArray = Array.from(uniqueForms.values())
+      // Get usernames for the form creators (assigned_by users)
+      const userIds = [...new Set(formsData.map(form => form.user_id))]
+      const { data: userData, error: userError } = await supabase
+        .from('user_roles')
+        .select('user_id, username')
+        .in('user_id', userIds)
 
-      // Get usernames for assigned_by users
-      if (formsArray.length > 0) {
-        const userIds = [...new Set(formsArray.map(form => form.assigned_by))]
-        const { data: userData, error: userError } = await supabase
-          .from('user_roles')
-          .select('user_id, username')
-          .in('user_id', userIds)
-
-        if (!userError && userData) {
-          const userMap = new Map(userData.map(u => [u.user_id, u.username]))
-          formsArray.forEach(form => {
-            form.assigned_by_username = userMap.get(form.assigned_by) || 'Unknown'
-          })
-        }
+      const userMap = new Map()
+      if (!userError && userData) {
+        userData.forEach(u => userMap.set(u.user_id, u.username))
       }
 
+      // Combine the data
+      const formsArray = formsData.map(form => {
+        const assignment = assignmentMap.get(form.id)
+        return {
+          id: form.id,
+          name: form.name,
+          initiative: form.initiative,
+          current_status: form.current_status,
+          created_at: form.created_at,
+          updated_at: form.updated_at,
+          assigned_by: form.user_id,
+          assigned_by_username: userMap.get(form.user_id) || 'Unknown',
+          assigned_on: assignment?.assigned_on || form.updated_at
+        }
+      })
+
+      console.log('Processed forms array:', formsArray)
       setAssignedForms(formsArray)
     } catch (error: any) {
       console.error('Error loading assigned forms:', error)
