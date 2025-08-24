@@ -13,7 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Camera, ArrowRight, ArrowLeft, Upload } from 'lucide-react';
+import { CalendarIcon, Camera, ArrowRight, ArrowLeft, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,8 +49,8 @@ export const CPVFormCompletion = ({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [visitDate, setVisitDate] = useState<Date>();
   const [visitTime, setVisitTime] = useState('');
-  const [agentName, setAgentName] = useState('');
-  const [agentSignature, setAgentSignature] = useState('');
+  const [agentSignature, setAgentSignature] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Define the three main sections
   const sections = [
@@ -169,20 +169,27 @@ export const CPVFormCompletion = ({
               {field.title} {field.mandatory && <span className="text-destructive">*</span>}
             </Label>
             <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <Input
                 id={field.id}
                 type="file"
                 accept="image/*,.pdf,.doc,.docx"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleImageUpload(field.id, file);
+                  if (file && field.id === 'agent_signature') {
+                    setAgentSignature(file);
+                    handleFieldChange(field.id, file.name);
+                  } else if (file) {
+                    handleImageUpload(field.id, file);
+                  }
                 }}
                 className="hidden"
               />
               <Label htmlFor={field.id} className="cursor-pointer">
                 <span className="text-sm text-muted-foreground">
-                  {value ? `Uploaded: ${value}` : 'Click to upload file'}
+                  {(field.id === 'agent_signature' && agentSignature) ? 
+                    `Uploaded: ${agentSignature.name}` : 
+                    value ? `Uploaded: ${value}` : 'Click to upload file'}
                 </span>
               </Label>
             </div>
@@ -270,20 +277,23 @@ export const CPVFormCompletion = ({
               {field.title} {field.mandatory && <span className="text-destructive">*</span>}
             </Label>
             <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               <Input
                 id={field.id}
                 type="file"
                 accept="image/*,.pdf"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleImageUpload(field.id, file);
+                  if (file) {
+                    setAgentSignature(file);
+                    handleFieldChange(field.id, file.name);
+                  }
                 }}
                 className="hidden"
               />
               <Label htmlFor={field.id} className="cursor-pointer">
                 <span className="text-sm text-muted-foreground">
-                  {formData[field.id] ? `Uploaded: ${formData[field.id]}` : 'Click to upload signature'}
+                  {agentSignature ? `Uploaded: ${agentSignature.name}` : 'Click to upload signature'}
                 </span>
               </Label>
             </div>
@@ -355,10 +365,8 @@ export const CPVFormCompletion = ({
             value = format(visitDate, 'PPP');
           } else if (field.id === 'visit_time' && visitTime) {
             value = visitTime;
-          } else if (field.id === 'agent_name' && agentName) {
-            value = agentName;
           } else if (field.id === 'agent_signature' && agentSignature) {
-            value = agentSignature;
+            value = agentSignature.name;
           }
 
           pdf.setFontSize(10);
@@ -477,8 +485,8 @@ export const CPVFormCompletion = ({
             </Button>
 
             {currentSection === totalSections - 1 ? (
-              <Button onClick={handleSubmit}>
-                Complete CPV Form
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? 'Generating PDF...' : 'Complete CPV Form'}
               </Button>
             ) : (
               <Button onClick={handleNext}>

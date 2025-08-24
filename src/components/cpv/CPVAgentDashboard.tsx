@@ -22,6 +22,7 @@ interface CPVLead {
   pincode: string;
   verification_status: string;
   cpv_agent_assigned_on: string;
+  verification_pdf_url?: string;
   cpv_forms: {
     id: string;
     name: string;

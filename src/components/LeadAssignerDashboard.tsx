@@ -356,8 +356,17 @@ const LeadAssignerDashboard = () => {
                           <FileDown className="h-4 w-4" />
                         </Button>
                       </TableCell>
-                      <TableCell className="text-center">
-                    </TableRow>
+                       <TableCell className="text-center">
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => handleMoreDetails(form)}
+                           className="h-8 w-8 p-0"
+                         >
+                           <MoreHorizontal className="h-4 w-4" />
+                         </Button>
+                       </TableCell>
+                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
