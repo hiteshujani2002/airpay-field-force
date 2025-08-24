@@ -8,14 +8,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Camera, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CalendarIcon, Camera, ArrowRight, ArrowLeft, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface CPVLead {
   id: string;
@@ -66,7 +70,10 @@ export const CPVFormCompletion = ({
       fields: (Array.isArray(lead.cpv_forms?.sections) ? lead.cpv_forms.sections[1]?.fields : null) || [
         { id: 'business_name', title: 'Name of Business', type: 'text', mandatory: true },
         { id: 'office_address', title: 'Office Address', type: 'text', mandatory: true },
-        { id: 'office_pincode', title: 'Pincode', type: 'text', mandatory: true },
+        { id: 'office_pincode', title: 'Pincode', type: 'number', mandatory: true },
+        { id: 'office_ownership', title: 'Office Ownership', type: 'dropdown', mandatory: true, options: ['Rented', 'Owned'] },
+        { id: 'years_in_business', title: 'Number of years in present business', type: 'number', mandatory: true },
+        { id: 'years_in_office', title: 'Number of years in the present office', type: 'number', mandatory: true },
         { id: 'business_photo', title: 'Business Photo', type: 'image', mandatory: true },
         { id: 'office_photo', title: 'Office Photo', type: 'image', mandatory: true },
       ]
@@ -78,7 +85,7 @@ export const CPVFormCompletion = ({
         { id: 'visit_date', title: 'Visit Date', type: 'date', mandatory: true },
         { id: 'visit_time', title: 'Visit Time', type: 'time', mandatory: true },
         { id: 'agent_name', title: 'Agent Name', type: 'text', mandatory: true },
-        { id: 'agent_signature', title: 'Agent Signature', type: 'signature', mandatory: true },
+        { id: 'agent_signature', title: 'Agent Signature', type: 'file', mandatory: true },
       ]
     }
   ];
@@ -115,6 +122,70 @@ export const CPVFormCompletion = ({
               onChange={(e) => handleFieldChange(field.id, e.target.value)}
               placeholder={`Enter ${field.title.toLowerCase()}`}
             />
+          </div>
+        );
+
+      case 'number':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={field.id}>
+              {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+            </Label>
+            <Input
+              id={field.id}
+              type="number"
+              value={value}
+              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              placeholder={`Enter ${field.title.toLowerCase()}`}
+            />
+          </div>
+        );
+
+      case 'dropdown':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={field.id}>
+              {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+            </Label>
+            <Select value={value} onValueChange={(value) => handleFieldChange(field.id, value)}>
+              <SelectTrigger>
+                <SelectValue placeholder={`Select ${field.title.toLowerCase()}`} />
+              </SelectTrigger>
+              <SelectContent>
+                {field.options?.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+
+      case 'file':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label htmlFor={field.id}>
+              {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+            </Label>
+            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <Input
+                id={field.id}
+                type="file"
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(field.id, file);
+                }}
+                className="hidden"
+              />
+              <Label htmlFor={field.id} className="cursor-pointer">
+                <span className="text-sm text-muted-foreground">
+                  {value ? `Uploaded: ${value}` : 'Click to upload file'}
+                </span>
+              </Label>
+            </div>
           </div>
         );
 
@@ -198,13 +269,24 @@ export const CPVFormCompletion = ({
             <Label htmlFor={field.id}>
               {field.title} {field.mandatory && <span className="text-destructive">*</span>}
             </Label>
-            <Textarea
-              id={field.id}
-              value={agentSignature}
-              onChange={(e) => setAgentSignature(e.target.value)}
-              placeholder="Type your signature or full name"
-              rows={3}
-            />
+            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+              <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <Input
+                id={field.id}
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageUpload(field.id, file);
+                }}
+                className="hidden"
+              />
+              <Label htmlFor={field.id} className="cursor-pointer">
+                <span className="text-sm text-muted-foreground">
+                  {formData[field.id] ? `Uploaded: ${formData[field.id]}` : 'Click to upload signature'}
+                </span>
+              </Label>
+            </div>
           </div>
         );
 
@@ -225,9 +307,119 @@ export const CPVFormCompletion = ({
     }
   };
 
-  const handleSubmit = () => {
-    // Here you would save the form data to the database
-    onComplete();
+  const generatePDF = async () => {
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let yPosition = 20;
+
+      // Title
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('CPV Form Completion Report', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 15;
+
+      // Merchant info
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Merchant Name: ${lead.merchant_name}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Phone: ${lead.merchant_phone}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Address: ${lead.merchant_address}`, 20, yPosition);
+      yPosition += 15;
+
+      // Form sections
+      sections.forEach((section) => {
+        if (yPosition > pageHeight - 40) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(section.name, 20, yPosition);
+        yPosition += 10;
+
+        section.fields.forEach((field) => {
+          if (yPosition > pageHeight - 20) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+
+          let value = formData[field.id] || '';
+          
+          // Handle special cases
+          if (field.id === 'visit_date' && visitDate) {
+            value = format(visitDate, 'PPP');
+          } else if (field.id === 'visit_time' && visitTime) {
+            value = visitTime;
+          } else if (field.id === 'agent_name' && agentName) {
+            value = agentName;
+          } else if (field.id === 'agent_signature' && agentSignature) {
+            value = agentSignature;
+          }
+
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(`${field.title}: ${value || 'Not provided'}`, 25, yPosition);
+          yPosition += 6;
+        });
+
+        yPosition += 5;
+      });
+
+      // Add completion info
+      if (yPosition > pageHeight - 40) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Completion Information', 20, yPosition);
+      yPosition += 10;
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Completed on: ${new Date().toLocaleDateString()}`, 25, yPosition);
+      yPosition += 6;
+      pdf.text(`Completed at: ${new Date().toLocaleTimeString()}`, 25, yPosition);
+
+      return pdf.output('blob');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      throw error;
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      toast.loading('Generating CPV report...');
+      
+      // Generate PDF
+      const pdfBlob = await generatePDF();
+      
+      // Here you would upload the PDF to storage and get the URL
+      // For now, we'll simulate this
+      const pdfUrl = `cpv-reports/${lead.id}-${Date.now()}.pdf`;
+      
+      // Update the merchant status with PDF URL and completion status
+      const { error } = await supabase
+        .from('cpv_merchant_status')
+        .update({ 
+          verification_status: 'completed',
+          verification_pdf_url: pdfUrl 
+        })
+        .eq('id', lead.id);
+
+      if (error) throw error;
+
+      toast.success('CPV form completed and PDF generated successfully!');
+      onComplete();
+    } catch (error) {
+      console.error('Error completing CPV form:', error);
+      toast.error('Failed to complete CPV form. Please try again.');
+    }
   };
 
   const currentSectionData = sections[currentSection];
@@ -270,23 +462,6 @@ export const CPVFormCompletion = ({
             </CardHeader>
             <CardContent className="space-y-4">
               {currentSectionData.fields.map(renderField)}
-              
-              {/* Special handling for agent details section */}
-              {currentSection === 2 && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="agent_name">
-                      Agent Name <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="agent_name"
-                      value={agentName}
-                      onChange={(e) => setAgentName(e.target.value)}
-                      placeholder="Enter agent name"
-                    />
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 

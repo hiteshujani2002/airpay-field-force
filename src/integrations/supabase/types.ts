@@ -79,6 +79,7 @@ export type Database = {
           uploaded_by_user_id: string
           uploaded_on: string
           verification_file_url: string | null
+          verification_pdf_url: string | null
           verification_status: string | null
         }
         Insert: {
@@ -100,6 +101,7 @@ export type Database = {
           uploaded_by_user_id: string
           uploaded_on?: string
           verification_file_url?: string | null
+          verification_pdf_url?: string | null
           verification_status?: string | null
         }
         Update: {
@@ -121,6 +123,7 @@ export type Database = {
           uploaded_by_user_id?: string
           uploaded_on?: string
           verification_file_url?: string | null
+          verification_pdf_url?: string | null
           verification_status?: string | null
         }
         Relationships: [

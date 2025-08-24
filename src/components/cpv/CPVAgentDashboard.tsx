@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, ArrowLeft, Clock, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { Eye, ArrowLeft, Clock, CheckCircle, XCircle, FileText, FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { PreliminaryQuestionsDialog } from './PreliminaryQuestionsDialog';
@@ -134,7 +134,7 @@ export const CPVAgentDashboard = () => {
   const completedLeads = leads.filter(lead => lead.verification_status === 'verified');
   const rejectedLeads = leads.filter(lead => lead.verification_status === 'rejected');
 
-  const renderLeadTable = (leadsToShow: CPVLead[], showActions = false) => (
+  const renderLeadTable = (leadsToShow: CPVLead[], showActions = false, showPDF = false) => (
     <Table>
       <TableHeader>
         <TableRow>
@@ -146,6 +146,7 @@ export const CPVAgentDashboard = () => {
           <TableHead>Pincode</TableHead>
           <TableHead>Lead Assigner</TableHead>
           <TableHead>Actions</TableHead>
+          {showPDF && <TableHead>Digital Copy</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -182,6 +183,25 @@ export const CPVAgentDashboard = () => {
                 )}
               </div>
             </TableCell>
+            {showPDF && (
+              <TableCell>
+                {lead.verification_pdf_url ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // In a real implementation, you would download the PDF from storage
+                      toast({ title: 'Download PDF', description: 'PDF download functionality' });
+                    }}
+                  >
+                    <FileDown className="h-4 w-4 mr-1" />
+                    Download
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground text-sm">Not available</span>
+                )}
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>
@@ -254,10 +274,10 @@ export const CPVAgentDashboard = () => {
                 <div className="text-center p-8 text-muted-foreground">
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-400" />
                   <h3 className="text-lg font-medium mb-2">No Completed Leads</h3>
-                  <p>You haven't completed any lead verifications yet.</p>
+                  <p>You haven't completed any leads yet.</p>
                 </div>
               ) : (
-                renderLeadTable(completedLeads)
+                renderLeadTable(completedLeads, false, true)
               )}
             </TabsContent>
             
@@ -266,10 +286,10 @@ export const CPVAgentDashboard = () => {
                 <div className="text-center p-8 text-muted-foreground">
                   <XCircle className="h-12 w-12 mx-auto mb-4 text-red-400" />
                   <h3 className="text-lg font-medium mb-2">No Rejected Leads</h3>
-                  <p>You haven't rejected any leads yet.</p>
+                  <p>You haven't rejected any leads.</p>
                 </div>
               ) : (
-                renderLeadTable(rejectedLeads)
+                renderLeadTable(rejectedLeads, false, true)
               )}
             </TabsContent>
           </Tabs>

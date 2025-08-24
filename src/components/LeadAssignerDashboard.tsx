@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Eye, MoreHorizontal, ArrowLeft } from 'lucide-react'
+import { Eye, MoreHorizontal, ArrowLeft, FileDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { format } from 'date-fns'
@@ -318,6 +318,7 @@ const LeadAssignerDashboard = () => {
                     <TableHead>Current Status</TableHead>
                     <TableHead>Last Activity</TableHead>
                     <TableHead className="text-center">View Form</TableHead>
+                    <TableHead className="text-center">Digital Copy</TableHead>
                     <TableHead className="text-center">More Details</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -346,12 +347,16 @@ const LeadAssignerDashboard = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleMoreDetails(form)}
+                          onClick={() => {
+                            // PDF download functionality - would connect to actual PDF storage
+                            toast({ title: 'Download PDF', description: 'CPV report download functionality' });
+                          }}
                           className="h-8 w-8 p-0"
                         >
-                          <MoreHorizontal className="h-4 w-4" />
+                          <FileDown className="h-4 w-4" />
                         </Button>
                       </TableCell>
+                      <TableCell className="text-center">
                     </TableRow>
                   ))}
                 </TableBody>
