@@ -137,6 +137,18 @@ const LeadsManagement = () => {
         }
       }
 
+      // Debug logging for merchant data
+      console.log('=== MERCHANT DATA DEBUG ===')
+      console.log('Merchant data loaded:', merchantData)
+      merchantData?.forEach((merchant, index) => {
+        console.log(`Merchant ${index}:`, {
+          name: merchant.merchant_name,
+          status: merchant.verification_status,
+          pdf_url: merchant.verification_pdf_url,
+          agent_id: merchant.assigned_cpv_agent_id
+        })
+      })
+
       setMerchants(merchantData || [])
     } catch (error: any) {
       console.error('Error loading data:', error)
@@ -652,6 +664,10 @@ const LeadsManagement = () => {
                       </TableCell>
                       <TableCell>{formatDate(merchant.uploaded_on)}</TableCell>
                       <TableCell>
+                        {/* Debug info */}
+                        <div className="text-xs text-muted-foreground mb-1">
+                          Status: {merchant.verification_status} | PDF: {merchant.verification_pdf_url ? 'Yes' : 'No'}
+                        </div>
                         {merchant.verification_status === 'completed' ? (
                           <Button 
                             variant="ghost" 
