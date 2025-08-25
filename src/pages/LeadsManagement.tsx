@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Filter, Download, Upload, FileText, Users } from 'lucide-react'
+import { ArrowLeft, Filter, Download, Upload, FileText, Users, FileDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { format } from 'date-fns'
@@ -28,6 +28,7 @@ interface MerchantData {
   cpv_agent?: string;
   uploaded_on: string;
   verification_file_url?: string;
+  verification_pdf_url?: string;
   cpv_agent_name?: string;
 }
 
@@ -325,6 +326,43 @@ const LeadsManagement = () => {
     }
   }
 
+  const handleDownloadPDF = async (merchant: MerchantData) => {
+    if (merchant.verification_status === 'completed' && merchant.verification_pdf_url) {
+      // Download the existing PDF
+      try {
+        const response = await fetch(merchant.verification_pdf_url)
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.style.display = 'none'
+        a.href = url
+        a.download = `${merchant.merchant_name}_CPV_Report.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        
+        toast({
+          title: 'Success',
+          description: 'CPV report downloaded successfully',
+        })
+      } catch (error) {
+        console.error('Error downloading PDF:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to download PDF',
+          variant: 'destructive',
+        })
+      }
+    } else {
+      toast({
+        title: 'Not Available',
+        description: 'PDF is only available for completed verifications',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy HH:mm')
@@ -614,16 +652,18 @@ const LeadsManagement = () => {
                       </TableCell>
                       <TableCell>{formatDate(merchant.uploaded_on)}</TableCell>
                       <TableCell>
-                        {merchant.verification_file_url ? (
+                        {merchant.verification_status === 'completed' ? (
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => window.open(merchant.verification_file_url, '_blank')}
+                            onClick={() => handleDownloadPDF(merchant)}
+                            className="h-8 w-8 p-0"
+                            title="Download CPV Report PDF"
                           >
-                            <FileText className="h-4 w-4" />
+                            <FileDown className="h-4 w-4" />
                           </Button>
                         ) : (
-                          <span className="text-muted-foreground text-sm">Not available</span>
+                          <span className="text-muted-foreground text-sm">Pending completion</span>
                         )}
                       </TableCell>
                     </TableRow>

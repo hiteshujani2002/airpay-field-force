@@ -231,10 +231,10 @@ const LeadAssignerDashboard = () => {
         return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
       case 'inactive':
         return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Inactive</Badge>
-      case 'completed':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Completed</Badge>
+      case 'draft':
+        return <Badge variant="outline">Active</Badge>
       default:
-        return <Badge variant="outline">{status || 'Draft'}</Badge>
+        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
     }
   }
 
@@ -318,7 +318,6 @@ const LeadAssignerDashboard = () => {
                     <TableHead>Current Status</TableHead>
                     <TableHead>Last Activity</TableHead>
                     <TableHead className="text-center">View Form</TableHead>
-                    <TableHead className="text-center">Digital Copy</TableHead>
                     <TableHead className="text-center">More Details</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -341,19 +340,6 @@ const LeadAssignerDashboard = () => {
                           className="h-8 w-8 p-0"
                         >
                           <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            // PDF download functionality - would connect to actual PDF storage
-                            toast({ title: 'Download PDF', description: 'CPV report download functionality' });
-                          }}
-                          className="h-8 w-8 p-0"
-                        >
-                          <FileDown className="h-4 w-4" />
                         </Button>
                       </TableCell>
                        <TableCell className="text-center">
