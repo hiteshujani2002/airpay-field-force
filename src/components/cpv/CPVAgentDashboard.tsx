@@ -10,6 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { PreliminaryQuestionsDialog } from './PreliminaryQuestionsDialog';
 import { CPVFormCompletion } from './CPVFormCompletion';
+import { CPVFormPreview } from './CPVFormPreview';
+import jsPDF from 'jspdf';
+import { format } from 'date-fns';
 
 interface CPVLead {
   id: string;
@@ -41,6 +44,7 @@ export const CPVAgentDashboard = () => {
   const [showPreliminaryDialog, setShowPreliminaryDialog] = useState(false);
   const [selectedLead, setSelectedLead] = useState<CPVLead | null>(null);
   const [showCPVForm, setShowCPVForm] = useState(false);
+  const [showFormPreview, setShowFormPreview] = useState(false);
 
   useEffect(() => {
     loadLeads();
@@ -130,6 +134,97 @@ export const CPVAgentDashboard = () => {
     setSelectedLead(null);
   };
 
+  const handleViewForm = (lead: CPVLead) => {
+    setSelectedLead(lead);
+    setShowFormPreview(true);
+  };
+
+  const generateAndDownloadPDF = async (lead: CPVLead) => {
+    try {
+      toast({
+        title: 'Generating PDF',
+        description: 'Creating PDF from completed form data...',
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let yPosition = 20;
+
+      // Title
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('CPV Verification Report', pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 15;
+
+      // Merchant info
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Merchant Name: ${lead.merchant_name}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Phone: ${lead.merchant_phone}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Address: ${lead.merchant_address}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`City: ${lead.city}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`State: ${lead.state}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Pincode: ${lead.pincode}`, 20, yPosition);
+      yPosition += 15;
+
+      // Form details
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Form Details', 20, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Form Name: ${lead.cpv_forms?.name || 'CPV Form'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Initiative: ${lead.cpv_forms?.initiative || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Verification Status: ${lead.verification_status}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Assigned Date: ${format(new Date(lead.cpv_agent_assigned_on), 'PPP')}`, 20, yPosition);
+      yPosition += 15;
+
+      // Status information
+      if (yPosition > pageHeight - 40) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Verification Status', 20, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Status: ${lead.verification_status.toUpperCase()}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Report Generated: ${format(new Date(), 'PPP')} at ${format(new Date(), 'p')}`, 20, yPosition);
+
+      // Download the PDF
+      const fileName = `CPV_Report_${lead.merchant_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+      pdf.save(fileName);
+
+      toast({
+        title: 'Success',
+        description: 'PDF downloaded successfully!',
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate PDF. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Filter leads by status
   const pendingLeads = leads.filter(lead => lead.verification_status === 'pending');
   const completedLeads = leads.filter(lead => lead.verification_status === 'verified');
@@ -146,7 +241,7 @@ export const CPVAgentDashboard = () => {
           <TableHead>State</TableHead>
           <TableHead>Pincode</TableHead>
           <TableHead>Lead Assigner</TableHead>
-          <TableHead>Actions</TableHead>
+          <TableHead>View Form</TableHead>
           {showPDF && <TableHead>Digital Copy</TableHead>}
         </TableRow>
       </TableHeader>
@@ -165,10 +260,7 @@ export const CPVAgentDashboard = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    // View form logic - can be expanded later
-                    toast({ title: 'View Form', description: 'Form viewing functionality' });
-                  }}
+                  onClick={() => handleViewForm(lead)}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -186,21 +278,15 @@ export const CPVAgentDashboard = () => {
             </TableCell>
             {showPDF && (
               <TableCell>
-                {lead.verification_pdf_url ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // In a real implementation, you would download the PDF from storage
-                      toast({ title: 'Download PDF', description: 'PDF download functionality' });
-                    }}
-                  >
-                    <FileDown className="h-4 w-4 mr-1" />
-                    Download
-                  </Button>
-                ) : (
-                  <span className="text-muted-foreground text-sm">Not available</span>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generateAndDownloadPDF(lead)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <FileDown className="h-4 w-4 mr-1" />
+                  Download PDF
+                </Button>
               </TableCell>
             )}
           </TableRow>
@@ -312,6 +398,15 @@ export const CPVAgentDashboard = () => {
           onOpenChange={setShowCPVForm}
           lead={selectedLead}
           onComplete={handleFormComplete}
+        />
+      )}
+
+      {/* Form Preview Dialog */}
+      {selectedLead && (
+        <CPVFormPreview
+          open={showFormPreview}
+          onOpenChange={setShowFormPreview}
+          lead={selectedLead}
         />
       )}
     </div>
