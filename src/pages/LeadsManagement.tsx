@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { format } from 'date-fns'
 import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface MerchantData {
   id: string;
@@ -135,17 +137,6 @@ const LeadsManagement = () => {
           })
         }
       }
-
-
-      // Debug: Log merchant data to check Amisha Dixit's status
-      console.log('=== MERCHANT DATA DEBUG ===')
-      merchantData?.forEach((merchant, index) => {
-        console.log(`Merchant ${index + 1}: ${merchant.merchant_name}`, {
-          verification_status: merchant.verification_status,
-          verification_pdf_url: merchant.verification_pdf_url,
-          assigned_cpv_agent_id: merchant.assigned_cpv_agent_id,
-        })
-      })
 
       setMerchants(merchantData || [])
     } catch (error: any) {
@@ -336,33 +327,122 @@ const LeadsManagement = () => {
     }
   }
 
+  const generateAndDownloadPDF = async (merchant: MerchantData) => {
+    try {
+      toast({
+        title: 'Generating PDF',
+        description: 'Please wait while we generate your CPV report...',
+      })
+
+      // Get the CPV form data and merchant verification details
+      const { data: formData, error: formError } = await supabase
+        .from('cpv_forms')
+        .select('name, initiative, form_preview_data')
+        .eq('id', formId)
+        .single()
+
+      if (formError) throw formError
+
+      // Create a new PDF document
+      const pdf = new jsPDF()
+      
+      // Add header
+      pdf.setFontSize(20)
+      pdf.text('CPV Verification Report', 20, 30)
+      
+      pdf.setFontSize(12)
+      pdf.text(`Form: ${formData.name}`, 20, 50)
+      pdf.text(`Initiative: ${formData.initiative}`, 20, 60)
+      pdf.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 20, 70)
+      
+      // Add merchant details
+      pdf.setFontSize(16)
+      pdf.text('Merchant Information', 20, 90)
+      
+      pdf.setFontSize(12)
+      pdf.text(`Name: ${merchant.merchant_name}`, 20, 110)
+      pdf.text(`Phone: ${merchant.merchant_phone}`, 20, 120)
+      pdf.text(`Address: ${merchant.merchant_address}`, 20, 130)
+      pdf.text(`City: ${merchant.city}`, 20, 140)
+      pdf.text(`State: ${merchant.state}`, 20, 150)
+      pdf.text(`Pincode: ${merchant.pincode}`, 20, 160)
+      
+      // Add verification details
+      pdf.setFontSize(16)
+      pdf.text('Verification Details', 20, 180)
+      
+      pdf.setFontSize(12)
+      pdf.text(`Status: ${merchant.verification_status}`, 20, 200)
+      pdf.text(`CPV Agent: ${merchant.cpv_agent_name || 'N/A'}`, 20, 210)
+      pdf.text(`Verification Date: ${merchant.cpv_agent_assigned_on ? format(new Date(merchant.cpv_agent_assigned_on), 'MMM dd, yyyy') : 'N/A'}`, 20, 220)
+      
+      // Save the PDF
+      const pdfBlob = pdf.output('blob')
+      const url = window.URL.createObjectURL(pdfBlob)
+      const a = document.createElement('a')
+      a.style.display = 'none'
+      a.href = url
+      a.download = `${merchant.merchant_name}_CPV_Report.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      // Optionally, save the PDF URL to the database for future downloads
+      const formData2 = new FormData()
+      formData2.append('file', pdfBlob, `${merchant.merchant_name}_CPV_Report.pdf`)
+      
+      // For now, we'll just show success message
+      toast({
+        title: 'Success',
+        description: 'CPV report downloaded successfully',
+      })
+
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to generate PDF report',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const handleDownloadPDF = async (merchant: MerchantData) => {
-    if (merchant.verification_status === 'completed' && merchant.verification_pdf_url) {
-      // Download the existing PDF
-      try {
-        const response = await fetch(merchant.verification_pdf_url)
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.style.display = 'none'
-        a.href = url
-        a.download = `${merchant.merchant_name}_CPV_Report.pdf`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-        
-        toast({
-          title: 'Success',
-          description: 'CPV report downloaded successfully',
-        })
-      } catch (error) {
-        console.error('Error downloading PDF:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to download PDF',
-          variant: 'destructive',
-        })
+    // Check if merchant has completed verification (verified, completed, or similar status)
+    const completedStatuses = ['completed', 'verified', 'approved']
+    
+    if (completedStatuses.includes(merchant.verification_status?.toLowerCase())) {
+      if (merchant.verification_pdf_url) {
+        // Download existing PDF
+        try {
+          const response = await fetch(merchant.verification_pdf_url)
+          const blob = await response.blob()
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.style.display = 'none'
+          a.href = url
+          a.download = `${merchant.merchant_name}_CPV_Report.pdf`
+          document.body.appendChild(a)
+          a.click()
+          window.URL.revokeObjectURL(url)
+          document.body.removeChild(a)
+          
+          toast({
+            title: 'Success',
+            description: 'CPV report downloaded successfully',
+          })
+        } catch (error) {
+          console.error('Error downloading PDF:', error)
+          toast({
+            title: 'Error',
+            description: 'Failed to download PDF',
+            variant: 'destructive',
+          })
+        }
+      } else {
+        // Generate PDF if not available
+        await generateAndDownloadPDF(merchant)
       }
     } else {
       toast({
@@ -461,6 +541,7 @@ const LeadsManagement = () => {
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="assigned">Assigned</SelectItem>
                           <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="verified">Verified</SelectItem>
                           <SelectItem value="rejected">Rejected</SelectItem>
                         </SelectContent>
                       </Select>
@@ -585,101 +666,103 @@ const LeadsManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMerchants.map(merchant => (
-                    <TableRow key={merchant.id}>
-                      <TableCell className="font-mono text-sm">{merchant.id.slice(-8)}</TableCell>
-                      <TableCell className="font-medium">{merchant.merchant_name}</TableCell>
-                      <TableCell>{merchant.state}</TableCell>
-                      <TableCell>{merchant.city}</TableCell>
-                      <TableCell>{merchant.pincode}</TableCell>
-                      <TableCell className="max-w-xs truncate" title={merchant.merchant_address}>
-                        {merchant.merchant_address}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
-                      <TableCell>
-                        {merchant.assigned_cpv_agent_id ? (
-                          <span className="text-sm">{merchant.cpv_agent_name}</span>
-                        ) : (
-                          <Dialog open={individualAssignOpen && selectedMerchant?.id === merchant.id} 
-                                 onOpenChange={(open) => {
-                                   setIndividualAssignOpen(open)
-                                   if (open) setSelectedMerchant(merchant)
-                                   else setSelectedMerchant(null)
-                                 }}>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="text-xs"
-                              >
-                                Yet to be Assigned
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Assign Merchant</DialogTitle>
-                                <DialogDescription>
-                                  Assign {merchant.merchant_name} to a CPV agent
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div>
-                                  <Label>Select CPV Agent</Label>
-                                  <Select 
-                                    value={individualAssignAgent} 
-                                    onValueChange={setIndividualAssignAgent}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Choose an agent" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {cpvAgents.map(agent => (
-                                        <SelectItem key={agent.user_id} value={agent.user_id}>
-                                          {agent.username}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                  {filteredMerchants.map(merchant => {
+                    // Check if verification is completed (verified, completed, approved statuses)
+                    const completedStatuses = ['completed', 'verified', 'approved']
+                    const isCompleted = completedStatuses.includes(merchant.verification_status?.toLowerCase())
+                    
+                    return (
+                      <TableRow key={merchant.id}>
+                        <TableCell className="font-mono text-sm">{merchant.id.slice(-8)}</TableCell>
+                        <TableCell className="font-medium">{merchant.merchant_name}</TableCell>
+                        <TableCell>{merchant.state}</TableCell>
+                        <TableCell>{merchant.city}</TableCell>
+                        <TableCell>{merchant.pincode}</TableCell>
+                        <TableCell className="max-w-xs truncate" title={merchant.merchant_address}>
+                          {merchant.merchant_address}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
+                        <TableCell>
+                          {merchant.assigned_cpv_agent_id ? (
+                            <span className="text-sm">{merchant.cpv_agent_name}</span>
+                          ) : (
+                            <Dialog open={individualAssignOpen && selectedMerchant?.id === merchant.id} 
+                                   onOpenChange={(open) => {
+                                     setIndividualAssignOpen(open)
+                                     if (open) setSelectedMerchant(merchant)
+                                     else setSelectedMerchant(null)
+                                   }}>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="text-xs"
+                                >
+                                  Yet to be Assigned
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Assign Merchant</DialogTitle>
+                                  <DialogDescription>
+                                    Assign {merchant.merchant_name} to a CPV agent
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div>
+                                    <Label>Select CPV Agent</Label>
+                                    <Select 
+                                      value={individualAssignAgent} 
+                                      onValueChange={setIndividualAssignAgent}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Choose an agent" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {cpvAgents.map(agent => (
+                                          <SelectItem key={agent.user_id} value={agent.user_id}>
+                                            {agent.username}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button 
+                                      onClick={handleIndividualAssign}
+                                      disabled={!individualAssignAgent}
+                                    >
+                                      Assign
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      onClick={() => setIndividualAssignOpen(false)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="flex gap-2">
-                                  <Button 
-                                    onClick={handleIndividualAssign}
-                                    disabled={!individualAssignAgent}
-                                  >
-                                    Assign
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    onClick={() => setIndividualAssignOpen(false)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatDate(merchant.uploaded_on)}</TableCell>
-                      <TableCell>
-                        {merchant.verification_status === 'completed' && merchant.verification_pdf_url ? (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleDownloadPDF(merchant)}
-                            className="h-8 w-8 p-0"
-                            title="Download CPV Report PDF"
-                          >
-                            <FileDown className="h-4 w-4" />
-                          </Button>
-                        ) : merchant.verification_status === 'completed' ? (
-                          <div className="flex items-center justify-center">
-                            <FileDown className="h-4 w-4 text-muted-foreground/50" />
-                          </div>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </TableCell>
+                        <TableCell>{formatDate(merchant.uploaded_on)}</TableCell>
+                        <TableCell>
+                          {isCompleted ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDownloadPDF(merchant)}
+                              className="h-8 w-8 p-0"
+                              title="Download CPV Report PDF"
+                            >
+                              <FileDown className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
