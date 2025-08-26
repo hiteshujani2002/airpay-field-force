@@ -138,6 +138,16 @@ const LeadsManagement = () => {
       }
 
 
+      // Debug: Log merchant data to check Amisha Dixit's status
+      console.log('=== MERCHANT DATA DEBUG ===')
+      merchantData?.forEach((merchant, index) => {
+        console.log(`Merchant ${index + 1}: ${merchant.merchant_name}`, {
+          verification_status: merchant.verification_status,
+          verification_pdf_url: merchant.verification_pdf_url,
+          assigned_cpv_agent_id: merchant.assigned_cpv_agent_id,
+        })
+      })
+
       setMerchants(merchantData || [])
     } catch (error: any) {
       console.error('Error loading data:', error)
