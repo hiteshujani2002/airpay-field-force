@@ -137,17 +137,6 @@ const LeadsManagement = () => {
         }
       }
 
-      // Debug logging for merchant data
-      console.log('=== MERCHANT DATA DEBUG ===')
-      console.log('Merchant data loaded:', merchantData)
-      merchantData?.forEach((merchant, index) => {
-        console.log(`Merchant ${index}:`, {
-          name: merchant.merchant_name,
-          status: merchant.verification_status,
-          pdf_url: merchant.verification_pdf_url,
-          agent_id: merchant.assigned_cpv_agent_id
-        })
-      })
 
       setMerchants(merchantData || [])
     } catch (error: any) {
@@ -664,11 +653,7 @@ const LeadsManagement = () => {
                       </TableCell>
                       <TableCell>{formatDate(merchant.uploaded_on)}</TableCell>
                       <TableCell>
-                        {/* Debug info */}
-                        <div className="text-xs text-muted-foreground mb-1">
-                          Status: {merchant.verification_status} | PDF: {merchant.verification_pdf_url ? 'Yes' : 'No'}
-                        </div>
-                        {merchant.verification_status === 'completed' ? (
+                        {merchant.verification_status === 'completed' && merchant.verification_pdf_url ? (
                           <Button 
                             variant="ghost" 
                             size="sm"
@@ -678,9 +663,11 @@ const LeadsManagement = () => {
                           >
                             <FileDown className="h-4 w-4" />
                           </Button>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Pending completion</span>
-                        )}
+                        ) : merchant.verification_status === 'completed' ? (
+                          <div className="flex items-center justify-center">
+                            <FileDown className="h-4 w-4 text-muted-foreground/50" />
+                          </div>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}
