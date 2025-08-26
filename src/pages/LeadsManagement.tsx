@@ -95,12 +95,11 @@ const LeadsManagement = () => {
       if (formError) throw formError
       setCpvForm(formData)
 
-      // Load merchant data
+      // Load merchant data - show all merchants for this form
       const { data: merchantData, error: merchantError } = await supabase
         .from('cpv_merchant_status')
         .select('*')
         .eq('cpv_form_id', formId)
-        .eq('assigned_lead_assigner_id', user.id)
         .order('uploaded_on', { ascending: false })
 
       if (merchantError) throw merchantError
