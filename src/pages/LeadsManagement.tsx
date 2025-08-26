@@ -32,6 +32,7 @@ interface MerchantData {
   verification_file_url?: string;
   verification_pdf_url?: string;
   cpv_agent_name?: string;
+  cpv_agent_assigned_on?: string;
 }
 
 interface CPVForm {
