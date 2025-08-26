@@ -304,9 +304,18 @@ const CPVMerchantStatus = () => {
   }
 
   const handleMoreDetails = async (form: CPVForm) => {
-    if (!user) return;
+    console.log('=== handleMoreDetails clicked ===')
+    console.log('Form:', form)
+    console.log('User:', user)
+    
+    if (!user) {
+      console.log('No user found, returning')
+      return;
+    }
     
     try {
+      console.log('Checking if merchant data exists for form:', form.id)
+      
       // Check if merchant data exists for this form
       const { data: merchantData, error } = await supabase
         .from('cpv_merchant_status')
@@ -314,18 +323,26 @@ const CPVMerchantStatus = () => {
         .eq('cpv_form_id', form.id)
         .limit(1)
 
-      if (error) throw error
+      console.log('Merchant data query result:', { merchantData, error })
+
+      if (error) {
+        console.error('Error in merchant data query:', error)
+        throw error
+      }
 
       if (merchantData && merchantData.length > 0) {
+        console.log('Merchant data exists, redirecting to view')
         // Data exists, redirect to view
         navigate(`/merchant-data/${form.id}`)
       } else {
+        console.log('No merchant data exists, showing upload dialog')
         // No data exists, show upload dialog
         setSelectedForm(form)
         setShowMerchantDetails(true)
       }
     } catch (error: any) {
       console.error('Error checking merchant data:', error)
+      console.log('Fallback: showing upload dialog due to error')
       // Fallback to showing upload dialog
       setSelectedForm(form)
       setShowMerchantDetails(true)
@@ -469,15 +486,23 @@ const CPVMerchantStatus = () => {
 
       if (error) {
         console.error('Supabase error details:', error)
+        console.error('Error code:', error.code)
+        console.error('Error message:', error.message)
+        console.error('Error details:', error.details)
+        console.error('Error hint:', error.hint)
         
         // Provide more specific error messages
         let errorMessage = 'Failed to upload merchant data'
-        if (error.message.includes('row-level security')) {
+        if (error.message.includes('row-level security') || error.message.includes('permission denied')) {
           errorMessage = 'Access denied: You do not have permission to upload data to this form'
-        } else if (error.message.includes('violates')) {
-          errorMessage = 'Data validation error: Please check your Excel file format'
-        } else if (error.message.includes('uuid')) {
-          errorMessage = 'Invalid Lead Assigner selection'
+        } else if (error.message.includes('violates') || error.message.includes('constraint')) {
+          errorMessage = 'Data validation error: Please check your Excel file format and ensure all required columns are present'
+        } else if (error.message.includes('uuid') || error.message.includes('invalid input syntax')) {
+          errorMessage = 'Invalid Lead Assigner selection or data format issue'
+        } else if (error.message.includes('null value in column')) {
+          errorMessage = 'Missing required data: Please ensure all mandatory fields are filled in your Excel file'
+        } else {
+          errorMessage = `Upload failed: ${error.message}`
         }
         
         toast({
