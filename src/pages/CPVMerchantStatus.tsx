@@ -316,22 +316,50 @@ const CPVMerchantStatus = () => {
     try {
       console.log('Checking if merchant data exists for form:', form.id)
       
+      // First verify the user owns this form
+      const { data: formOwnership, error: ownershipError } = await supabase
+        .from('cpv_forms')
+        .select('id, user_id, name')
+        .eq('id', form.id)
+        .eq('user_id', user.id)
+        .single()
+
+      console.log('Form ownership check:', { formOwnership, ownershipError })
+
+      if (ownershipError || !formOwnership) {
+        console.error('User does not own this form or form not found')
+        toast({
+          title: 'Access Denied',
+          description: 'You do not have permission to access this form',
+          variant: 'destructive',
+        })
+        return
+      }
+      
       // Check if merchant data exists for this form
       const { data: merchantData, error } = await supabase
         .from('cpv_merchant_status')
-        .select('id')
+        .select('id, merchant_name')
         .eq('cpv_form_id', form.id)
-        .limit(1)
+        .limit(5) // Check for a few records to be more certain
 
       console.log('Merchant data query result:', { merchantData, error })
 
       if (error) {
         console.error('Error in merchant data query:', error)
-        throw error
+        // Don't throw error, just log and show upload dialog
+        toast({
+          title: 'Warning',
+          description: 'Could not check existing data. Showing upload dialog.',
+          variant: 'destructive',
+        })
+        setSelectedForm(form)
+        setShowMerchantDetails(true)
+        return
       }
 
       if (merchantData && merchantData.length > 0) {
-        console.log('Merchant data exists, redirecting to view')
+        console.log(`Found ${merchantData.length} merchant records, redirecting to view`)
         // Data exists, redirect to view
         navigate(`/merchant-data/${form.id}`)
       } else {
@@ -343,6 +371,11 @@ const CPVMerchantStatus = () => {
     } catch (error: any) {
       console.error('Error checking merchant data:', error)
       console.log('Fallback: showing upload dialog due to error')
+      toast({
+        title: 'Error',
+        description: 'Failed to check existing data. Please try again.',
+        variant: 'destructive',
+      })
       // Fallback to showing upload dialog
       setSelectedForm(form)
       setShowMerchantDetails(true)
@@ -477,6 +510,22 @@ const CPVMerchantStatus = () => {
 
       // Insert into Supabase with detailed error handling
       console.log('Attempting to insert into Supabase...')
+      console.log('Sample merchant record for validation:', merchantRecords[0])
+      
+      // Validate required fields before insert
+      for (let i = 0; i < merchantRecords.length; i++) {
+        const record = merchantRecords[i]
+        if (!record.merchant_name || !record.merchant_phone || !record.merchant_address || 
+            !record.city || !record.state || !record.pincode) {
+          toast({
+            title: 'Data Validation Error',
+            description: `Row ${i + 2}: Missing required fields. Please ensure all columns (Merchant Name, Phone, Address, City, State, Pincode) are filled.`,
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+
       const { data: insertedData, error } = await supabase
         .from('cpv_merchant_status')
         .insert(merchantRecords)
@@ -494,13 +543,15 @@ const CPVMerchantStatus = () => {
         // Provide more specific error messages
         let errorMessage = 'Failed to upload merchant data'
         if (error.message.includes('row-level security') || error.message.includes('permission denied')) {
-          errorMessage = 'Access denied: You do not have permission to upload data to this form'
+          errorMessage = 'Access denied: You do not have permission to upload data to this form. Please ensure you own this CPV form.'
         } else if (error.message.includes('violates') || error.message.includes('constraint')) {
           errorMessage = 'Data validation error: Please check your Excel file format and ensure all required columns are present'
         } else if (error.message.includes('uuid') || error.message.includes('invalid input syntax')) {
           errorMessage = 'Invalid Lead Assigner selection or data format issue'
         } else if (error.message.includes('null value in column')) {
           errorMessage = 'Missing required data: Please ensure all mandatory fields are filled in your Excel file'
+        } else if (error.message.includes('foreign key')) {
+          errorMessage = 'Invalid reference: The selected Lead Assigner or CPV Form may not exist'
         } else {
           errorMessage = `Upload failed: ${error.message}`
         }
@@ -510,7 +561,7 @@ const CPVMerchantStatus = () => {
           description: errorMessage,
           variant: 'destructive',
         })
-        throw error
+        return // Don't throw error, just return
       }
 
       console.log('Upload successful! Inserted records:', insertedData)
