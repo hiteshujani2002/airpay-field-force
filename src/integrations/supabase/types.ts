@@ -316,6 +316,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_is_assigned_cpv_agent: {
+        Args: { form_id: string; user_id: string }
+        Returns: boolean
+      }
+      user_owns_cpv_form: {
+        Args: { form_id: string; user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "super_admin" | "client_admin" | "lead_assigner" | "cpv_agent"
