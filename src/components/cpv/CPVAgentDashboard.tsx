@@ -143,7 +143,7 @@ export const CPVAgentDashboard = () => {
     try {
       toast({
         title: 'Generating PDF',
-        description: 'Creating PDF from completed form data...',
+        description: 'Creating comprehensive PDF from completed form data...',
       });
 
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -157,10 +157,25 @@ export const CPVAgentDashboard = () => {
       pdf.text('CPV Verification Report', pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 15;
 
-      // Merchant info
+      // Form details
       pdf.setFontSize(12);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(`Merchant Name: ${lead.merchant_name}`, 20, yPosition);
+      pdf.text(`Form: ${lead.cpv_forms?.name || 'CPV Form'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Initiative: ${lead.cpv_forms?.initiative || 'N/A'}`, 20, yPosition);
+      yPosition += 8;
+      pdf.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 20, yPosition);
+      yPosition += 15;
+
+      // Merchant info
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Merchant Information', 20, yPosition);
+      yPosition += 10;
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Name: ${lead.merchant_name}`, 20, yPosition);
       yPosition += 8;
       pdf.text(`Phone: ${lead.merchant_phone}`, 20, yPosition);
       yPosition += 8;
@@ -173,47 +188,88 @@ export const CPVAgentDashboard = () => {
       pdf.text(`Pincode: ${lead.pincode}`, 20, yPosition);
       yPosition += 15;
 
-      // Form details
-      pdf.setFontSize(14);
+      // Verification details
+      pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Form Details', 20, yPosition);
-      yPosition += 10;
-      
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`Form Name: ${lead.cpv_forms?.name || 'CPV Form'}`, 20, yPosition);
-      yPosition += 8;
-      pdf.text(`Initiative: ${lead.cpv_forms?.initiative || 'N/A'}`, 20, yPosition);
-      yPosition += 8;
-      pdf.text(`Verification Status: ${lead.verification_status}`, 20, yPosition);
-      yPosition += 8;
-      pdf.text(`Assigned Date: ${format(new Date(lead.cpv_agent_assigned_on), 'PPP')}`, 20, yPosition);
-      yPosition += 15;
-
-      // Status information
-      if (yPosition > pageHeight - 40) {
-        pdf.addPage();
-        yPosition = 20;
-      }
-
-      pdf.setFontSize(14);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Verification Status', 20, yPosition);
+      pdf.text('Verification Details', 20, yPosition);
       yPosition += 10;
       
       pdf.setFontSize(12);
       pdf.setFont('helvetica', 'normal');
       pdf.text(`Status: ${lead.verification_status.toUpperCase()}`, 20, yPosition);
       yPosition += 8;
+      pdf.text(`Assigned Date: ${format(new Date(lead.cpv_agent_assigned_on), 'MMM dd, yyyy')}`, 20, yPosition);
+      yPosition += 15;
+
+      // Add form sections if available
+      if (lead.cpv_forms?.sections && Array.isArray(lead.cpv_forms.sections) && lead.cpv_forms.sections.length > 0) {
+        if (yPosition > pageHeight - 40) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Completed Form Data', 20, yPosition);
+        yPosition += 10;
+
+        lead.cpv_forms.sections.forEach((section: any) => {
+          if (yPosition > pageHeight - 40) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(section.name || 'Section', 20, yPosition);
+          yPosition += 8;
+
+          if (section.fields && Array.isArray(section.fields)) {
+            section.fields.forEach((field: any) => {
+              if (yPosition > pageHeight - 20) {
+                pdf.addPage();
+                yPosition = 20;
+              }
+
+              pdf.setFontSize(10);
+              pdf.setFont('helvetica', 'normal');
+              const fieldValue = field.value || field.defaultValue || 'Not provided';
+              pdf.text(`${field.title || field.label}: ${fieldValue}`, 25, yPosition);
+              yPosition += 6;
+            });
+          }
+          yPosition += 5;
+        });
+      }
+
+      // Add completion timestamp
+      if (yPosition > pageHeight - 40) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Report Information', 20, yPosition);
+      yPosition += 8;
+      pdf.setFont('helvetica', 'normal');
       pdf.text(`Report Generated: ${format(new Date(), 'PPP')} at ${format(new Date(), 'p')}`, 20, yPosition);
 
-      // Download the PDF
-      const fileName = `CPV_Report_${lead.merchant_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
-      pdf.save(fileName);
+      // Generate PDF blob and download
+      const pdfBlob = pdf.output('blob');
+      const url = window.URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `CPV_Report_${lead.merchant_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
       toast({
         title: 'Success',
-        description: 'PDF downloaded successfully!',
+        description: 'Comprehensive PDF report downloaded successfully!',
       });
     } catch (error) {
       console.error('Error generating PDF:', error);

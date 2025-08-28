@@ -335,49 +335,114 @@ const LeadsManagement = () => {
         description: 'Please wait while we generate your CPV report...',
       })
 
-      // Get the CPV form data and merchant verification details
+      // Get the CPV form data and completed form data
       const { data: formData, error: formError } = await supabase
         .from('cpv_forms')
-        .select('name, initiative, form_preview_data')
+        .select('name, initiative, sections, form_preview_data')
         .eq('id', formId)
         .single()
 
       if (formError) throw formError
 
-      // Create a new PDF document
-      const pdf = new jsPDF()
-      
-      // Add header
+      // Create a comprehensive PDF document
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      let yPosition = 20
+
+      // Title
       pdf.setFontSize(20)
-      pdf.text('CPV Verification Report', 20, 30)
-      
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('CPV Verification Report', pageWidth / 2, yPosition, { align: 'center' })
+      yPosition += 15
+
+      // Form details
       pdf.setFontSize(12)
-      pdf.text(`Form: ${formData.name}`, 20, 50)
-      pdf.text(`Initiative: ${formData.initiative}`, 20, 60)
-      pdf.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 20, 70)
-      
-      // Add merchant details
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`Form: ${formData.name}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`Initiative: ${formData.initiative}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 20, yPosition)
+      yPosition += 15
+
+      // Merchant details
       pdf.setFontSize(16)
-      pdf.text('Merchant Information', 20, 90)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Merchant Information', 20, yPosition)
+      yPosition += 10
       
       pdf.setFontSize(12)
-      pdf.text(`Name: ${merchant.merchant_name}`, 20, 110)
-      pdf.text(`Phone: ${merchant.merchant_phone}`, 20, 120)
-      pdf.text(`Address: ${merchant.merchant_address}`, 20, 130)
-      pdf.text(`City: ${merchant.city}`, 20, 140)
-      pdf.text(`State: ${merchant.state}`, 20, 150)
-      pdf.text(`Pincode: ${merchant.pincode}`, 20, 160)
-      
-      // Add verification details
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`Name: ${merchant.merchant_name}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`Phone: ${merchant.merchant_phone}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`Address: ${merchant.merchant_address}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`City: ${merchant.city}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`State: ${merchant.state}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`Pincode: ${merchant.pincode}`, 20, yPosition)
+      yPosition += 15
+
+      // Verification details
       pdf.setFontSize(16)
-      pdf.text('Verification Details', 20, 180)
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('Verification Details', 20, yPosition)
+      yPosition += 10
       
       pdf.setFontSize(12)
-      pdf.text(`Status: ${merchant.verification_status}`, 20, 200)
-      pdf.text(`CPV Agent: ${merchant.cpv_agent_name || 'N/A'}`, 20, 210)
-      pdf.text(`Verification Date: ${merchant.cpv_agent_assigned_on ? format(new Date(merchant.cpv_agent_assigned_on), 'MMM dd, yyyy') : 'N/A'}`, 20, 220)
-      
-      // Save the PDF
+      pdf.setFont('helvetica', 'normal')
+      pdf.text(`Status: ${merchant.verification_status.toUpperCase()}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`CPV Agent: ${merchant.cpv_agent_name || 'N/A'}`, 20, yPosition)
+      yPosition += 8
+      pdf.text(`Assignment Date: ${merchant.cpv_agent_assigned_on ? format(new Date(merchant.cpv_agent_assigned_on), 'MMM dd, yyyy') : 'N/A'}`, 20, yPosition)
+      yPosition += 15
+
+      // Add form sections if available
+      if (formData.sections && Array.isArray(formData.sections) && formData.sections.length > 0) {
+        if (yPosition > pageHeight - 40) {
+          pdf.addPage()
+          yPosition = 20
+        }
+
+        pdf.setFontSize(16)
+        pdf.setFont('helvetica', 'bold')
+        pdf.text('Form Sections', 20, yPosition)
+        yPosition += 10
+
+        formData.sections.forEach((section: any) => {
+          if (yPosition > pageHeight - 40) {
+            pdf.addPage()
+            yPosition = 20
+          }
+
+          pdf.setFontSize(14)
+          pdf.setFont('helvetica', 'bold')
+          pdf.text(section.name || 'Section', 20, yPosition)
+          yPosition += 8
+
+          if (section.fields && Array.isArray(section.fields)) {
+            section.fields.forEach((field: any) => {
+              if (yPosition > pageHeight - 20) {
+                pdf.addPage()
+                yPosition = 20
+              }
+
+              pdf.setFontSize(10)
+              pdf.setFont('helvetica', 'normal')
+              pdf.text(`${field.title || field.label}: ${field.value || 'Not provided'}`, 25, yPosition)
+              yPosition += 6
+            })
+          }
+          yPosition += 5
+        })
+      }
+
+      // Generate and download PDF
       const pdfBlob = pdf.output('blob')
       const url = window.URL.createObjectURL(pdfBlob)
       const a = document.createElement('a')
@@ -389,11 +454,6 @@ const LeadsManagement = () => {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
 
-      // Optionally, save the PDF URL to the database for future downloads
-      const formData2 = new FormData()
-      formData2.append('file', pdfBlob, `${merchant.merchant_name}_CPV_Report.pdf`)
-      
-      // For now, we'll just show success message
       toast({
         title: 'Success',
         description: 'CPV report downloaded successfully',
