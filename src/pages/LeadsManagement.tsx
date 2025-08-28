@@ -474,40 +474,11 @@ const LeadsManagement = () => {
     const completedStatuses = ['completed', 'verified', 'approved']
     
     if (completedStatuses.includes(merchant.verification_status?.toLowerCase())) {
-      if (merchant.verification_pdf_url) {
-        // Download existing PDF
-        try {
-          const response = await fetch(merchant.verification_pdf_url)
-          const blob = await response.blob()
-          const url = window.URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.style.display = 'none'
-          a.href = url
-          a.download = `${merchant.merchant_name}_CPV_Report.pdf`
-          document.body.appendChild(a)
-          a.click()
-          window.URL.revokeObjectURL(url)
-          document.body.removeChild(a)
-          
-          toast({
-            title: 'Success',
-            description: 'CPV report downloaded successfully',
-          })
-        } catch (error) {
-          console.error('Error downloading PDF:', error)
-          toast({
-            title: 'Error',
-            description: 'Failed to download PDF',
-            variant: 'destructive',
-          })
-        }
-      } else {
-        // Generate PDF if not available
-        await generateAndDownloadPDF(merchant)
-      }
+      // Always generate a new PDF from form data since no storage bucket is configured
+      await generateAndDownloadPDF(merchant)
     } else {
       toast({
-        title: 'Not Available',
+        title: 'Cannot Download',
         description: 'PDF is only available for completed verifications',
         variant: 'destructive',
       })
