@@ -225,8 +225,10 @@ export const CPVAgentDashboard = () => {
     }
   };
 
-  // Filter leads by status
-  const pendingLeads = leads.filter(lead => lead.verification_status === 'pending');
+  // Filter leads by status - include both 'pending' and 'assigned' leads in pending section
+  const pendingLeads = leads.filter(lead => 
+    lead.verification_status === 'pending' || lead.verification_status === 'assigned'
+  );
   const completedLeads = leads.filter(lead => lead.verification_status === 'verified');
   const rejectedLeads = leads.filter(lead => lead.verification_status === 'rejected');
 
