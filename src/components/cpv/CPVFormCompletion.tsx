@@ -17,7 +17,7 @@ import { CalendarIcon, Camera, ArrowRight, ArrowLeft, FileText } from 'lucide-re
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -26,6 +26,12 @@ interface CPVLead {
   merchant_name: string;
   merchant_phone: string;
   merchant_address: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  cpv_agent?: string;
+  form_name?: string;
+  initiative?: string;
   cpv_forms: {
     name: string;
     sections: any;
@@ -319,81 +325,38 @@ export const CPVFormCompletion = ({
 
   const generatePDF = async () => {
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      let yPosition = 20;
+      // Import the standardized PDF generator
+      const { generateStandardizedCPVPDF } = await import('@/lib/pdfGenerator');
+      
+      // Prepare merchant info
+      const merchantInfo = {
+        id: lead.id,
+        merchant_name: lead.merchant_name,
+        merchant_phone: lead.merchant_phone,
+        merchant_address: lead.merchant_address,
+        city: lead.city || '',
+        state: lead.state || '',
+        pincode: lead.pincode || '',
+        verification_status: 'verified',
+        cpv_agent_name: lead.cpv_agent || 'Current Agent'
+      };
 
-      // Title
-      pdf.setFontSize(20);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('CPV Form Completion Report', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 15;
+      // Prepare form data
+      const formDataForPDF = {
+        sections: sections,
+        name: lead.form_name || 'CPV Form',
+        initiative: lead.initiative || 'Standard Initiative'
+      };
 
-      // Merchant info
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`Merchant Name: ${lead.merchant_name}`, 20, yPosition);
-      yPosition += 8;
-      pdf.text(`Phone: ${lead.merchant_phone}`, 20, yPosition);
-      yPosition += 8;
-      pdf.text(`Address: ${lead.merchant_address}`, 20, yPosition);
-      yPosition += 15;
+      // Prepare completed form data with all captured values
+      const completedFormData = {
+        ...formData,
+        visit_date: visitDate,
+        visit_time: visitTime,
+        agent_signature: agentSignature
+      };
 
-      // Form sections
-      sections.forEach((section) => {
-        if (yPosition > pageHeight - 40) {
-          pdf.addPage();
-          yPosition = 20;
-        }
-
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(section.name, 20, yPosition);
-        yPosition += 10;
-
-        section.fields.forEach((field) => {
-          if (yPosition > pageHeight - 20) {
-            pdf.addPage();
-            yPosition = 20;
-          }
-
-          let value = formData[field.id] || '';
-          
-          // Handle special cases
-          if (field.id === 'visit_date' && visitDate) {
-            value = format(visitDate, 'PPP');
-          } else if (field.id === 'visit_time' && visitTime) {
-            value = visitTime;
-          } else if (field.id === 'agent_signature' && agentSignature) {
-            value = agentSignature.name;
-          }
-
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'normal');
-          pdf.text(`${field.title}: ${value || 'Not provided'}`, 25, yPosition);
-          yPosition += 6;
-        });
-
-        yPosition += 5;
-      });
-
-      // Add completion info
-      if (yPosition > pageHeight - 40) {
-        pdf.addPage();
-        yPosition = 20;
-      }
-
-      pdf.setFontSize(12);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Completion Information', 20, yPosition);
-      yPosition += 10;
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(`Completed on: ${new Date().toLocaleDateString()}`, 25, yPosition);
-      yPosition += 6;
-      pdf.text(`Completed at: ${new Date().toLocaleTimeString()}`, 25, yPosition);
-
-      return pdf.output('blob');
+      return await generateStandardizedCPVPDF(merchantInfo, formDataForPDF, completedFormData);
     } catch (error) {
       console.error('Error generating PDF:', error);
       throw error;
@@ -402,31 +365,45 @@ export const CPVFormCompletion = ({
 
   const handleSubmit = async () => {
     try {
-      toast.loading('Generating CPV report...');
+      setIsSubmitting(true);
       
-      // Generate PDF
+      // Generate standardized PDF
       const pdfBlob = await generatePDF();
       
-      // Here you would upload the PDF to storage and get the URL
-      // For now, we'll simulate this
-      const pdfUrl = `cpv-reports/${lead.id}-${Date.now()}.pdf`;
+      // Import download utility
+      const { downloadPDF } = await import('@/lib/pdfGenerator');
       
-      // Update the merchant status with PDF URL and completion status
+      // Generate filename
+      const filename = `CPV_Report_${lead.merchant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      // Download the PDF
+      downloadPDF(pdfBlob, filename);
+
+      // Update the merchant status to verified
       const { error } = await supabase
         .from('cpv_merchant_status')
         .update({ 
-          verification_status: 'completed',
-          verification_pdf_url: pdfUrl 
+          verification_status: 'verified'
         })
         .eq('id', lead.id);
 
       if (error) throw error;
 
-      toast.success('CPV form completed and PDF generated successfully!');
+      toast({
+        title: 'CPV Completed',
+        description: 'Verification report has been generated and downloaded successfully',
+      });
+
       onComplete();
     } catch (error) {
       console.error('Error completing CPV form:', error);
-      toast.error('Failed to complete CPV form. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Failed to complete CPV form. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

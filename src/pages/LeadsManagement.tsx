@@ -348,115 +348,32 @@ const LeadsManagement = () => {
 
       if (formError) throw formError
 
-      // Create a comprehensive PDF document
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-      let yPosition = 20
-
-      // Title
-      pdf.setFontSize(20)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('CPV Verification Report', pageWidth / 2, yPosition, { align: 'center' })
-      yPosition += 15
-
-      // Form details
-      pdf.setFontSize(12)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`Form: ${formData.name}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`Initiative: ${formData.initiative}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`Generated on: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 20, yPosition)
-      yPosition += 15
-
-      // Merchant details
-      pdf.setFontSize(16)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Merchant Information', 20, yPosition)
-      yPosition += 10
+      // Import the standardized PDF generator
+      const { generateStandardizedCPVPDF, downloadPDF } = await import('@/lib/pdfGenerator')
       
-      pdf.setFontSize(12)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`Name: ${merchant.merchant_name}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`Phone: ${merchant.merchant_phone}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`Address: ${merchant.merchant_address}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`City: ${merchant.city}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`State: ${merchant.state}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`Pincode: ${merchant.pincode}`, 20, yPosition)
-      yPosition += 15
-
-      // Verification details
-      pdf.setFontSize(16)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('Verification Details', 20, yPosition)
-      yPosition += 10
-      
-      pdf.setFontSize(12)
-      pdf.setFont('helvetica', 'normal')
-      pdf.text(`Status: ${merchant.verification_status.toUpperCase()}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`CPV Agent: ${merchant.cpv_agent_name || 'N/A'}`, 20, yPosition)
-      yPosition += 8
-      pdf.text(`Assignment Date: ${merchant.cpv_agent_assigned_on ? format(new Date(merchant.cpv_agent_assigned_on), 'MMM dd, yyyy') : 'N/A'}`, 20, yPosition)
-      yPosition += 15
-
-      // Add form sections if available
-      if (formData.sections && Array.isArray(formData.sections) && formData.sections.length > 0) {
-        if (yPosition > pageHeight - 40) {
-          pdf.addPage()
-          yPosition = 20
-        }
-
-        pdf.setFontSize(16)
-        pdf.setFont('helvetica', 'bold')
-        pdf.text('Form Sections', 20, yPosition)
-        yPosition += 10
-
-        formData.sections.forEach((section: any) => {
-          if (yPosition > pageHeight - 40) {
-            pdf.addPage()
-            yPosition = 20
-          }
-
-          pdf.setFontSize(14)
-          pdf.setFont('helvetica', 'bold')
-          pdf.text(section.name || 'Section', 20, yPosition)
-          yPosition += 8
-
-          if (section.fields && Array.isArray(section.fields)) {
-            section.fields.forEach((field: any) => {
-              if (yPosition > pageHeight - 20) {
-                pdf.addPage()
-                yPosition = 20
-              }
-
-              pdf.setFontSize(10)
-              pdf.setFont('helvetica', 'normal')
-              pdf.text(`${field.title || field.label}: ${field.value || 'Not provided'}`, 25, yPosition)
-              yPosition += 6
-            })
-          }
-          yPosition += 5
-        })
+      // Prepare merchant info
+      const merchantInfo = {
+        id: merchant.id,
+        merchant_name: merchant.merchant_name,
+        merchant_phone: merchant.merchant_phone,
+        merchant_address: merchant.merchant_address,
+        city: merchant.city,
+        state: merchant.state,
+        pincode: merchant.pincode,
+        verification_status: merchant.verification_status,
+        cpv_agent_name: merchant.cpv_agent_name,
+        cpv_agent_assigned_on: merchant.cpv_agent_assigned_on,
+        verification_file_url: merchant.verification_file_url
       }
 
-      // Generate and download PDF
-      const pdfBlob = pdf.output('blob')
-      const url = window.URL.createObjectURL(pdfBlob)
-      const a = document.createElement('a')
-      a.style.display = 'none'
-      a.href = url
-      a.download = `${merchant.merchant_name}_CPV_Report.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      // Use the standardized PDF generator
+      const pdfBlob = await generateStandardizedCPVPDF(merchantInfo, formData)
+      
+      // Generate filename
+      const filename = `CPV_Report_${merchant.merchant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+      
+      // Download the PDF
+      downloadPDF(pdfBlob, filename)
 
       toast({
         title: 'Success',
