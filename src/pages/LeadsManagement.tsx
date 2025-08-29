@@ -786,15 +786,25 @@ const LeadsManagement = () => {
                         <TableCell>
                           {isCompleted ? (
                             <Button 
-                              variant="ghost" 
+                              variant="outline" 
                               size="sm"
                               onClick={() => handleDownloadPDF(merchant)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 hover:bg-primary hover:text-primary-foreground"
                               title="Download CPV Report PDF"
                             >
                               <FileDown className="h-4 w-4" />
                             </Button>
-                          ) : null}
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              disabled
+                              className="h-8 w-8 p-0 opacity-50"
+                              title="PDF not available - Verification incomplete"
+                            >
+                              <FileDown className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     )
