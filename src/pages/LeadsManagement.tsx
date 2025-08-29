@@ -188,6 +188,10 @@ const LeadsManagement = () => {
         return <Badge variant="default" className="bg-blue-100 text-blue-800">Assigned</Badge>
       case 'completed':
         return <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>
+      case 'verified':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Verified</Badge>
+      case 'approved':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Approved</Badge>
       case 'rejected':
         return <Badge variant="destructive" className="bg-red-100 text-red-800">Rejected</Badge>
       default:
