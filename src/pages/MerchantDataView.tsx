@@ -159,6 +159,14 @@ const MerchantDataView = () => {
         return
       }
 
+      // Use form preview data as the completed form data with proper formatting
+      const completedFormData = {
+        ...(formStructure.form_preview_data && typeof formStructure.form_preview_data === 'object' ? formStructure.form_preview_data : {}),
+        visit_date: new Date(),
+        visit_time: new Date().toLocaleTimeString(),
+        agent_signature: { name: merchant.cpv_agent || 'CPV Agent' }
+      }
+
       // Generate PDF with all the data
       const pdfBlob = await generateStandardizedCPVPDF(
         {
@@ -179,11 +187,7 @@ const MerchantDataView = () => {
           sections: formStructure.sections || [],
           form_preview_data: formStructure.form_preview_data || {}
         },
-        {
-          visit_date: new Date(),
-          visit_time: new Date().toLocaleTimeString(),
-          agent_signature: { name: merchant.cpv_agent || 'CPV Agent' }
-        }
+        completedFormData
       )
 
       downloadPDF(pdfBlob, `CPV_Report_${merchant.merchant_name}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`)

@@ -147,11 +147,22 @@ export const generateStandardizedCPVPDF = async (
             value = field.value;
           }
 
-          // Convert value to string and handle arrays/objects
+          // Convert value to string and handle arrays/objects for human readability
           if (Array.isArray(value)) {
             value = value.join(', ');
           } else if (typeof value === 'object' && value !== null) {
-            value = JSON.stringify(value);
+            // Handle objects more gracefully for human readability
+            const objValue = value as any;
+            if (objValue.name) {
+              value = objValue.name;
+            } else if (objValue.label && objValue.value) {
+              value = `${objValue.label}: ${objValue.value}`;
+            } else {
+              // Convert object to readable key-value pairs
+              value = Object.entries(value)
+                .map(([key, val]) => `${key}: ${val}`)
+                .join(', ');
+            }
           } else {
             value = String(value || '');
           }
