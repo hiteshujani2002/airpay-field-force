@@ -133,7 +133,7 @@ const MerchantDataView = () => {
   }
 
   const handleDownloadFile = async (merchant: MerchantData) => {
-    if (merchant.verification_status !== 'completed') {
+    if (!merchant.verification_status || !['completed', 'verified'].includes(merchant.verification_status.toLowerCase())) {
       toast({
         title: 'File not available',
         description: 'Verification file will be available after CPV Agent completes the process',
@@ -426,7 +426,7 @@ const MerchantDataView = () => {
                               {merchant.assigned_on ? new Date(merchant.assigned_on).toLocaleDateString() : 'Not Assigned'}
                             </TableCell>
                             <TableCell>
-                              {merchant.verification_status === 'completed' ? (
+                              {merchant.verification_status && ['completed', 'verified'].includes(merchant.verification_status.toLowerCase()) ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -441,6 +441,7 @@ const MerchantDataView = () => {
                                   size="sm"
                                   disabled
                                   className="text-muted-foreground cursor-not-allowed"
+                                  title="Verification file will be available after CPV Agent completes the process"
                                 >
                                   <FileText className="h-4 w-4" />
                                 </Button>
