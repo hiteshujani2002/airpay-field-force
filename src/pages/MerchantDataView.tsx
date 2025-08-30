@@ -10,6 +10,7 @@ import { ArrowLeft, Upload, Users, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import MerchantDataDialog from '@/components/MerchantDataDialog'
+import { generateStandardizedCPVPDF, downloadPDF } from '@/lib/pdfGenerator'
 import * as XLSX from 'xlsx'
 
 interface MerchantData {
@@ -23,6 +24,7 @@ interface MerchantData {
   assigned_lead_assigner_id?: string;
   cpv_agent?: string;
   assigned_on?: string;
+  cpv_agent_assigned_on?: string;
   uploaded_on: string;
   verification_status: string;
   verification_file_url?: string;
@@ -130,13 +132,71 @@ const MerchantDataView = () => {
     return leadAssignerId ? (leadAssigners[leadAssignerId] || 'Unknown') : 'Not Assigned'
   }
 
-  const handleDownloadFile = (fileUrl?: string) => {
-    if (fileUrl) {
-      window.open(fileUrl, '_blank')
-    } else {
+  const handleDownloadFile = async (merchant: MerchantData) => {
+    if (merchant.verification_status !== 'completed') {
       toast({
         title: 'File not available',
         description: 'Verification file will be available after CPV Agent completes the process',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      // Fetch the CPV form structure
+      const { data: formStructure, error: structureError } = await supabase
+        .from('cpv_forms')
+        .select('name, initiative, sections, form_preview_data')
+        .eq('id', formId)
+        .single()
+
+      if (structureError || !formStructure) {
+        toast({
+          title: 'Error',
+          description: 'Unable to fetch form structure',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Generate PDF with all the data
+      const pdfBlob = await generateStandardizedCPVPDF(
+        {
+          id: merchant.id,
+          merchant_name: merchant.merchant_name,
+          merchant_phone: merchant.merchant_phone,
+          merchant_address: merchant.merchant_address,
+          city: merchant.city,
+          state: merchant.state,
+          pincode: merchant.pincode,
+          verification_status: merchant.verification_status,
+          cpv_agent_name: merchant.cpv_agent || 'Not Assigned',
+          cpv_agent_assigned_on: merchant.cpv_agent_assigned_on || undefined
+        },
+        {
+          name: formStructure.name || 'CPV Form',
+          initiative: formStructure.initiative || 'Not specified',
+          sections: formStructure.sections || [],
+          form_preview_data: formStructure.form_preview_data || {}
+        },
+        {
+          visit_date: new Date(),
+          visit_time: new Date().toLocaleTimeString(),
+          agent_signature: { name: merchant.cpv_agent || 'CPV Agent' }
+        }
+      )
+
+      downloadPDF(pdfBlob, `CPV_Report_${merchant.merchant_name}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`)
+      
+      toast({
+        title: 'Success',
+        description: 'CPV report downloaded successfully',
+      })
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to generate PDF report',
         variant: 'destructive',
       })
     }
@@ -366,15 +426,25 @@ const MerchantDataView = () => {
                               {merchant.assigned_on ? new Date(merchant.assigned_on).toLocaleDateString() : 'Not Assigned'}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDownloadFile(merchant.verification_file_url)}
-                                disabled={!merchant.verification_file_url}
-                                className={merchant.verification_file_url ? 'text-primary hover:text-primary/80' : 'text-muted-foreground cursor-not-allowed'}
-                              >
-                                <FileText className="h-4 w-4" />
-                              </Button>
+                              {merchant.verification_status === 'completed' ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDownloadFile(merchant)}
+                                  className="text-primary hover:bg-primary/10"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled
+                                  className="text-muted-foreground cursor-not-allowed"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
