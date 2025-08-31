@@ -65,6 +65,7 @@ export type Database = {
           assigned_lead_assigner_id: string | null
           assigned_on: string | null
           city: string
+          completed_form_data: Json | null
           cpv_agent: string | null
           cpv_agent_assigned_on: string | null
           cpv_form_id: string
@@ -87,6 +88,7 @@ export type Database = {
           assigned_lead_assigner_id?: string | null
           assigned_on?: string | null
           city: string
+          completed_form_data?: Json | null
           cpv_agent?: string | null
           cpv_agent_assigned_on?: string | null
           cpv_form_id: string
@@ -109,6 +111,7 @@ export type Database = {
           assigned_lead_assigner_id?: string | null
           assigned_on?: string | null
           city?: string
+          completed_form_data?: Json | null
           cpv_agent?: string | null
           cpv_agent_assigned_on?: string | null
           cpv_form_id?: string

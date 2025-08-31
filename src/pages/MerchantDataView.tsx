@@ -143,14 +143,21 @@ const MerchantDataView = () => {
     }
 
     try {
-      // Fetch the CPV form structure
-      const { data: formStructure, error: structureError } = await supabase
-        .from('cpv_forms')
-        .select('name, initiative, sections, form_preview_data')
-        .eq('id', formId)
-        .single()
+      // Fetch the CPV form structure and completed form data
+      const [formResult, merchantResult] = await Promise.all([
+        supabase
+          .from('cpv_forms')
+          .select('name, initiative, sections, form_preview_data')
+          .eq('id', formId)
+          .single(),
+        supabase
+          .from('cpv_merchant_status')
+          .select('completed_form_data')
+          .eq('id', merchant.id)
+          .single()
+      ]);
 
-      if (structureError || !formStructure) {
+      if (formResult.error || !formResult.data) {
         toast({
           title: 'Error',
           description: 'Unable to fetch form structure',
@@ -159,12 +166,20 @@ const MerchantDataView = () => {
         return
       }
 
-      // Use form preview data as the completed form data with proper formatting
-      const completedFormData = {
+      const formStructure = formResult.data;
+      const merchantData = merchantResult.data;
+
+      // Use actual completed form data if available, otherwise use form preview data as fallback
+      const completedFormData: any = merchantData?.completed_form_data || {
         ...(formStructure.form_preview_data && typeof formStructure.form_preview_data === 'object' ? formStructure.form_preview_data : {}),
-        visit_date: new Date(),
+        visit_date: new Date().toISOString(),
         visit_time: new Date().toLocaleTimeString(),
         agent_signature: { name: merchant.cpv_agent || 'CPV Agent' }
+      }
+
+      // Convert visit_date back to Date object if it's a string
+      if (completedFormData.visit_date && typeof completedFormData.visit_date === 'string') {
+        completedFormData.visit_date = new Date(completedFormData.visit_date);
       }
 
       // Generate PDF with all the data

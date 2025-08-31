@@ -367,6 +367,18 @@ export const CPVFormCompletion = ({
     try {
       setIsSubmitting(true);
       
+      // Prepare completed form data with all captured values
+      const completedFormData = {
+        ...formData,
+        visit_date: visitDate?.toISOString() || null,
+        visit_time: visitTime,
+        agent_signature: agentSignature ? { 
+          name: agentSignature.name,
+          type: agentSignature.type,
+          size: agentSignature.size 
+        } : null
+      };
+      
       // Generate standardized PDF
       const pdfBlob = await generatePDF();
       
@@ -379,11 +391,12 @@ export const CPVFormCompletion = ({
       // Download the PDF
       downloadPDF(pdfBlob, filename);
 
-      // Update the merchant status to verified
+      // Update the merchant status to verified and store completed form data
       const { error } = await supabase
         .from('cpv_merchant_status')
         .update({ 
-          verification_status: 'verified'
+          verification_status: 'verified',
+          completed_form_data: completedFormData
         })
         .eq('id', lead.id);
 
