@@ -31,6 +31,8 @@ interface CPVLead {
   form_preview_data?: any;
   form_name?: string;
   initiative?: string;
+  lead_assigner_name?: string;
+  assigned_lead_assigner_id?: string;
   cpv_forms: {
     id: string;
     name: string;
@@ -75,7 +77,29 @@ export const CPVAgentDashboard = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLeads(data || []);
+
+      // Get lead assigner usernames for assigned leads
+      const leadAssignerIds = [...new Set(data?.filter(lead => lead.assigned_lead_assigner_id).map(lead => lead.assigned_lead_assigner_id))].filter(Boolean);
+      
+      let leadAssignerMap = new Map();
+      if (leadAssignerIds.length > 0) {
+        const { data: leadAssignerData, error: leadAssignerError } = await supabase
+          .from('user_roles')
+          .select('user_id, username')
+          .in('user_id', leadAssignerIds);
+
+        if (!leadAssignerError && leadAssignerData) {
+          leadAssignerMap = new Map(leadAssignerData.map(la => [la.user_id, la.username]));
+        }
+      }
+
+      // Add lead assigner names to leads data
+      const leadsWithAssignerNames = data?.map(lead => ({
+        ...lead,
+        lead_assigner_name: lead.assigned_lead_assigner_id ? leadAssignerMap.get(lead.assigned_lead_assigner_id) || 'Unknown' : 'Unassigned'
+      })) || [];
+
+      setLeads(leadsWithAssignerNames);
     } catch (error: any) {
       console.error('Error loading leads:', error);
       toast({
@@ -230,7 +254,7 @@ export const CPVAgentDashboard = () => {
             <TableCell>{`${lead.merchant_address}, ${lead.city}`}</TableCell>
             <TableCell>{lead.state}</TableCell>
             <TableCell>{lead.pincode}</TableCell>
-            <TableCell>Lead Assigner</TableCell>
+            <TableCell>{lead.lead_assigner_name}</TableCell>
             <TableCell>
               <div className="flex gap-2">
                 <Button

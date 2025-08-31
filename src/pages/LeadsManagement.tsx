@@ -134,9 +134,16 @@ const LeadsManagement = () => {
           merchantData?.forEach((merchant: any) => {
             if (merchant.assigned_cpv_agent_id) {
               merchant.cpv_agent_name = agentMap.get(merchant.assigned_cpv_agent_id) || 'Unknown Agent'
+            } else {
+              merchant.cpv_agent_name = null // Clear any stale data
             }
           })
         }
+      } else {
+        // Clear cpv_agent_name for all merchants if no agents are assigned
+        merchantData?.forEach((merchant: any) => {
+          merchant.cpv_agent_name = null
+        })
       }
 
       setMerchants(merchantData || [])
@@ -636,7 +643,7 @@ const LeadsManagement = () => {
                         </TableCell>
                         <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
                         <TableCell>
-                          {merchant.assigned_cpv_agent_id ? (
+                          {merchant.assigned_cpv_agent_id && merchant.cpv_agent_name ? (
                             <span className="text-sm">{merchant.cpv_agent_name}</span>
                           ) : (
                             <Dialog open={individualAssignOpen && selectedMerchant?.id === merchant.id} 
@@ -651,7 +658,7 @@ const LeadsManagement = () => {
                                   size="sm"
                                   className="text-xs"
                                 >
-                                  Yet to be Assigned
+                                  Not Assigned
                                 </Button>
                               </DialogTrigger>
                               <DialogContent>
