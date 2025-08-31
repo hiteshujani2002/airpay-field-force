@@ -52,7 +52,10 @@ export const CPVFormCompletion = ({
   onComplete,
 }: CPVFormCompletionProps) => {
   const [currentSection, setCurrentSection] = useState(0);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, any>>({
+    // Initialize with agent name from lead data
+    agent_name: lead.cpv_agent || ''
+  });
   const [visitDate, setVisitDate] = useState<Date>();
   const [visitTime, setVisitTime] = useState('');
   const [agentSignature, setAgentSignature] = useState<File | null>(null);
@@ -90,7 +93,7 @@ export const CPVFormCompletion = ({
       fields: [
         { id: 'visit_date', title: 'Visit Date', type: 'date', mandatory: true },
         { id: 'visit_time', title: 'Visit Time', type: 'time', mandatory: true },
-        { id: 'agent_name', title: 'Agent Name', type: 'text', mandatory: true },
+        { id: 'agent_name', title: 'Agent Name', type: 'text', mandatory: true, value: lead.cpv_agent || '' },
         { id: 'agent_signature', title: 'Agent Signature', type: 'file', mandatory: true },
       ]
     }
@@ -113,7 +116,8 @@ export const CPVFormCompletion = ({
   };
 
   const renderField = (field: any) => {
-    const value = formData[field.id] || '';
+    // Use field.value as default for agent_name, otherwise use formData
+    const value = field.id === 'agent_name' ? (formData[field.id] || field.value || '') : (formData[field.id] || '');
 
     switch (field.type) {
       case 'text':
@@ -252,7 +256,10 @@ export const CPVFormCompletion = ({
                 <Calendar
                   mode="single"
                   selected={visitDate}
-                  onSelect={setVisitDate}
+                  onSelect={(date) => {
+                    setVisitDate(date);
+                    handleFieldChange(field.id, date?.toISOString() || '');
+                  }}
                   initialFocus
                   className="pointer-events-auto"
                 />
@@ -271,7 +278,10 @@ export const CPVFormCompletion = ({
               id={field.id}
               type="time"
               value={visitTime}
-              onChange={(e) => setVisitTime(e.target.value)}
+              onChange={(e) => {
+                setVisitTime(e.target.value);
+                handleFieldChange(field.id, e.target.value);
+              }}
             />
           </div>
         );
