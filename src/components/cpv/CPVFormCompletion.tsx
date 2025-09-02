@@ -385,18 +385,30 @@ export const CPVFormCompletion = ({
         if (Array.isArray(section.fields)) {
           section.fields.forEach(field => {
             // Use existing form data or field default values
-            if (formData[field.id] !== undefined) {
+            if (formData[field.id] !== undefined && formData[field.id] !== null && formData[field.id] !== '') {
               allFormFields[field.id] = formData[field.id];
-            } else if (field.value !== undefined) {
+            } else if (field.value !== undefined && field.value !== null && field.value !== '') {
               allFormFields[field.id] = field.value;
             }
           });
         }
       });
       
+      // Add special fields that might not be in the form structure
+      if (visitDate) allFormFields['visit_date'] = visitDate.toISOString();
+      if (visitTime) allFormFields['visit_time'] = visitTime;
+      if (agentSignature) {
+        allFormFields['agent_signature'] = {
+          name: agentSignature.name,
+          type: agentSignature.type,
+          size: agentSignature.size
+        };
+      }
+      if (lead.cpv_agent) allFormFields['agent_name'] = lead.cpv_agent;
+      
       // Prepare completed form data with all captured values including all form fields
       const completedFormData = {
-        ...allFormFields,
+        ...allFormFields, // Start with all form fields
         ...formData, // Override with any explicitly set form data
         visit_date: visitDate?.toISOString() || null,
         visit_time: visitTime,
@@ -418,6 +430,8 @@ export const CPVFormCompletion = ({
         completion_timestamp: new Date().toISOString(),
         cpv_agent_name: lead.cpv_agent || formData.agent_name
       };
+      
+      console.log('Completed form data being stored:', completedFormData); // Debug log
       
       // Generate standardized PDF
       const pdfBlob = await generatePDF();

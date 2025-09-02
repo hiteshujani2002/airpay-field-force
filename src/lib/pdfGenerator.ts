@@ -127,9 +127,12 @@ export const generateStandardizedCPVPDF = async (
 
           let value = '';
           
+          console.log(`Processing field ${field.id}, title: ${field.title}`); // Debug log
+          
           // CRITICAL: Always prioritize completed data - no fallbacks to preview/dummy data
           if (completedData && completedData[field.id] !== undefined && completedData[field.id] !== null && completedData[field.id] !== '') {
             value = completedData[field.id];
+            console.log(`Found completed data for ${field.id}:`, value); // Debug log
             
             // Handle special field types
             if (field.id === 'visit_date' && completedData.visit_date) {
@@ -142,6 +145,8 @@ export const generateStandardizedCPVPDF = async (
                 : String(completedData.agent_signature);
             }
           } else {
+            console.log(`No completed data for ${field.id}, checking alternatives...`); // Debug log
+            
             // Only use stored CPV agent name from merchant data if no completed data exists
             if (field.id === 'agent_name' || (field.title && field.title.toLowerCase().includes('agent'))) {
               value = completedData?.cpv_agent_name || merchant.cpv_agent_name || 'Not provided';
@@ -154,10 +159,19 @@ export const generateStandardizedCPVPDF = async (
                 ? completedData.agent_signature.name 
                 : String(completedData.agent_signature);
             } else {
-              // Mark as explicitly not provided rather than using dummy data
-              value = '';
+              // Check if field has a default value or if it's in the form preview data
+              if (formData.form_preview_data && formData.form_preview_data[field.id]) {
+                value = formData.form_preview_data[field.id];
+              } else if (field.value !== undefined) {
+                value = field.value;
+              } else {
+                // Mark as explicitly not provided rather than using dummy data
+                value = '';
+              }
             }
           }
+          
+          console.log(`Final value for ${field.id}:`, value); // Debug log
 
           // Convert value to string and handle arrays/objects for human readability
           if (Array.isArray(value)) {

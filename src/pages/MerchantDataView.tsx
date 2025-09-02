@@ -200,6 +200,8 @@ const MerchantDataView = () => {
 
       const completedFormData = merchantData.completed_form_data as any;
       
+      console.log('Retrieved completed form data:', completedFormData); // Debug log
+      
       // Validate that essential form data is present
       if (!completedFormData || typeof completedFormData !== 'object') {
         toast({
