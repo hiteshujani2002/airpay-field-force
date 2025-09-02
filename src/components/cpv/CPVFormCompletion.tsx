@@ -377,7 +377,7 @@ export const CPVFormCompletion = ({
     try {
       setIsSubmitting(true);
       
-      // Prepare completed form data with all captured values
+      // Prepare completed form data with all captured values including all form fields
       const completedFormData = {
         ...formData,
         visit_date: visitDate?.toISOString() || null,
@@ -392,21 +392,40 @@ export const CPVFormCompletion = ({
       // Generate standardized PDF
       const pdfBlob = await generatePDF();
       
-      // Import download utility
+      // Generate unique filename for storage
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const storageFileName = `cpv-report-${lead.id}-${timestamp}.pdf`;
+      
+      // Upload PDF to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('cpv-pdfs')
+        .upload(storageFileName, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('PDF upload error:', uploadError);
+        throw new Error('Failed to store PDF report');
+      }
+
+      // Get the public URL for the uploaded PDF
+      const { data: urlData } = supabase.storage
+        .from('cpv-pdfs')
+        .getPublicUrl(storageFileName);
+
+      // Import download utility and download for immediate user access
       const { downloadPDF } = await import('@/lib/pdfGenerator');
-      
-      // Generate filename
       const filename = `CPV_Report_${lead.merchant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      // Download the PDF
       downloadPDF(pdfBlob, filename);
 
-      // Update the merchant status to verified and store completed form data
+      // Update the merchant status with all data including the PDF URL
       const { error } = await supabase
         .from('cpv_merchant_status')
         .update({ 
           verification_status: 'verified',
-          completed_form_data: completedFormData
+          completed_form_data: completedFormData,
+          verification_pdf_url: urlData.publicUrl
         })
         .eq('id', lead.id);
 

@@ -145,6 +145,24 @@ export const generateStandardizedCPVPDF = async (
             value = formData.form_preview_data[field.id];
           } else if (field.value !== undefined) {
             value = field.value;
+          } else {
+            // If no value found anywhere, check if this is a special system field
+            if (field.id === 'visit_date' && completedData?.visit_date) {
+              value = format(new Date(completedData.visit_date), 'PPP');
+            } else if (field.id === 'visit_time' && completedData?.visit_time) {
+              value = completedData.visit_time;
+            } else if (field.id === 'agent_signature' && completedData?.agent_signature) {
+              value = typeof completedData.agent_signature === 'object' && completedData.agent_signature.name 
+                ? completedData.agent_signature.name 
+                : String(completedData.agent_signature);
+            } else if (field.title && (field.title.toLowerCase().includes('signature') || field.title.toLowerCase().includes('agent'))) {
+              // Try to find agent signature data
+              const agentName = completedData?.agent_signature?.name || 
+                               completedData?.agentSignature?.name ||
+                               merchant.cpv_agent_name ||
+                               'Not provided';
+              value = agentName;
+            }
           }
 
           // Convert value to string and handle arrays/objects for human readability

@@ -28,6 +28,8 @@ interface MerchantData {
   uploaded_on: string;
   verification_status: string;
   verification_file_url?: string;
+  verification_pdf_url?: string;
+  completed_form_data?: any;
 }
 
 interface CPVForm {
@@ -74,7 +76,7 @@ const MerchantDataView = () => {
       // Load merchant data
       const { data: merchantsData, error: merchantsError } = await supabase
         .from('cpv_merchant_status')
-        .select('*')
+        .select('*, verification_pdf_url')
         .eq('cpv_form_id', formId)
         .order('uploaded_on', { ascending: false })
 
@@ -143,6 +145,23 @@ const MerchantDataView = () => {
     }
 
     try {
+      // First, check if there's already a stored PDF URL
+      if (merchant.verification_pdf_url) {
+        // Download directly from the stored URL
+        const response = await fetch(merchant.verification_pdf_url);
+        if (response.ok) {
+          const blob = await response.blob();
+          downloadPDF(blob, `CPV_Report_${merchant.merchant_name}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+          
+          toast({
+            title: 'Success',
+            description: 'CPV report downloaded successfully',
+          });
+          return;
+        }
+      }
+
+      // Fallback: Generate PDF if no stored URL or fetch failed
       // Fetch the CPV form structure and completed form data
       const [formResult, merchantResult] = await Promise.all([
         supabase
@@ -152,7 +171,7 @@ const MerchantDataView = () => {
           .single(),
         supabase
           .from('cpv_merchant_status')
-          .select('completed_form_data')
+          .select('completed_form_data, verification_pdf_url')
           .eq('id', merchant.id)
           .single()
       ]);
@@ -169,20 +188,24 @@ const MerchantDataView = () => {
       const formStructure = formResult.data;
       const merchantData = merchantResult.data;
 
-      // Use actual completed form data if available, otherwise use form preview data as fallback
-      const completedFormData: any = merchantData?.completed_form_data || {
-        ...(formStructure.form_preview_data && typeof formStructure.form_preview_data === 'object' ? formStructure.form_preview_data : {}),
-        visit_date: new Date().toISOString(),
-        visit_time: new Date().toLocaleTimeString(),
-        agent_signature: { name: merchant.cpv_agent || 'CPV Agent' }
+      // Ensure we have completed form data - this should exist for verified merchants
+      if (!merchantData?.completed_form_data) {
+        toast({
+          title: 'Error',
+          description: 'No completed form data found. Please complete the CPV verification first.',
+          variant: 'destructive',
+        });
+        return;
       }
 
-      // Convert visit_date back to Date object if it's a string
-      if (completedFormData.visit_date && typeof completedFormData.visit_date === 'string') {
+      const completedFormData = merchantData.completed_form_data as any;
+
+      // Convert visit_date back to Date object if it's a string  
+      if (completedFormData && typeof completedFormData === 'object' && completedFormData.visit_date && typeof completedFormData.visit_date === 'string') {
         completedFormData.visit_date = new Date(completedFormData.visit_date);
       }
 
-      // Generate PDF with all the data
+      // Generate PDF with the actual completed data
       const pdfBlob = await generateStandardizedCPVPDF(
         {
           id: merchant.id,
