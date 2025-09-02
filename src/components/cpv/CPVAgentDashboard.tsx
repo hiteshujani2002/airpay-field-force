@@ -62,21 +62,43 @@ export const CPVAgentDashboard = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // First get the merchant status data
+      const { data: merchantData, error: merchantError } = await supabase
         .from('cpv_merchant_status')
-        .select(`
-          *,
-          cpv_forms:cpv_form_id (
-            id,
-            name,
-            initiative,
-            sections
-          )
-        `)
+        .select('*')
         .eq('assigned_cpv_agent_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (merchantError) throw merchantError;
+
+      if (!merchantData || merchantData.length === 0) {
+        setLeads([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get unique form IDs
+      const formIds = [...new Set(merchantData.map(m => m.cpv_form_id))];
+
+      // Get the corresponding CPV forms
+      const { data: formsData, error: formsError } = await supabase
+        .from('cpv_forms')
+        .select('id, name, initiative, sections')
+        .in('id', formIds);
+
+      if (formsError) throw formsError;
+
+      // Create a map of forms for easy lookup
+      const formsMap = new Map(formsData?.map(form => [form.id, form]) || []);
+
+      // Combine merchant data with form data
+      const data = merchantData.map(merchant => ({
+        ...merchant,
+        cpv_forms: formsMap.get(merchant.cpv_form_id) || null,
+        sections: formsMap.get(merchant.cpv_form_id)?.sections,
+        form_name: formsMap.get(merchant.cpv_form_id)?.name,
+        initiative: formsMap.get(merchant.cpv_form_id)?.initiative
+      }));
 
       // Get lead assigner usernames for assigned leads
       const leadAssignerIds = [...new Set(data?.filter(lead => lead.assigned_lead_assigner_id).map(lead => lead.assigned_lead_assigner_id))].filter(Boolean);
