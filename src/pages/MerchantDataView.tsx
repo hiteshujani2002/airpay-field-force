@@ -199,6 +199,16 @@ const MerchantDataView = () => {
       }
 
       const completedFormData = merchantData.completed_form_data as any;
+      
+      // Validate that essential form data is present
+      if (!completedFormData || typeof completedFormData !== 'object') {
+        toast({
+          title: 'Error',
+          description: 'Invalid form data found. The CPV verification may be incomplete.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       // Convert visit_date back to Date object if it's a string  
       if (completedFormData && typeof completedFormData === 'object' && completedFormData.visit_date && typeof completedFormData.visit_date === 'string') {

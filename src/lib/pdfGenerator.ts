@@ -127,8 +127,8 @@ export const generateStandardizedCPVPDF = async (
 
           let value = '';
           
-          // Get value from completed data first, then form preview data, then field value
-          if (completedData && completedData[field.id] !== undefined) {
+          // CRITICAL: Always prioritize completed data - no fallbacks to preview/dummy data
+          if (completedData && completedData[field.id] !== undefined && completedData[field.id] !== null && completedData[field.id] !== '') {
             value = completedData[field.id];
             
             // Handle special field types
@@ -141,13 +141,11 @@ export const generateStandardizedCPVPDF = async (
                 ? completedData.agent_signature.name 
                 : String(completedData.agent_signature);
             }
-          } else if (formData.form_preview_data && formData.form_preview_data[field.id] !== undefined) {
-            value = formData.form_preview_data[field.id];
-          } else if (field.value !== undefined) {
-            value = field.value;
           } else {
-            // If no value found anywhere, check if this is a special system field
-            if (field.id === 'visit_date' && completedData?.visit_date) {
+            // Only use stored CPV agent name from merchant data if no completed data exists
+            if (field.id === 'agent_name' || (field.title && field.title.toLowerCase().includes('agent'))) {
+              value = completedData?.cpv_agent_name || merchant.cpv_agent_name || 'Not provided';
+            } else if (field.id === 'visit_date' && completedData?.visit_date) {
               value = format(new Date(completedData.visit_date), 'PPP');
             } else if (field.id === 'visit_time' && completedData?.visit_time) {
               value = completedData.visit_time;
@@ -155,13 +153,9 @@ export const generateStandardizedCPVPDF = async (
               value = typeof completedData.agent_signature === 'object' && completedData.agent_signature.name 
                 ? completedData.agent_signature.name 
                 : String(completedData.agent_signature);
-            } else if (field.title && (field.title.toLowerCase().includes('signature') || field.title.toLowerCase().includes('agent'))) {
-              // Try to find agent signature data
-              const agentName = completedData?.agent_signature?.name || 
-                               completedData?.agentSignature?.name ||
-                               merchant.cpv_agent_name ||
-                               'Not provided';
-              value = agentName;
+            } else {
+              // Mark as explicitly not provided rather than using dummy data
+              value = '';
             }
           }
 
@@ -188,10 +182,13 @@ export const generateStandardizedCPVPDF = async (
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'normal');
           
+          // Ensure consistent display for all users - show exactly what was filled
+          const displayValue = value || 'Not provided during verification';
+          
           // Split long text to prevent overflow
           const maxLineLength = 60;
-          if (value.length > maxLineLength) {
-            const lines = pdf.splitTextToSize(`${field.title}: ${value || 'Not provided'}`, pageWidth - 50);
+          if (displayValue.length > maxLineLength) {
+            const lines = pdf.splitTextToSize(`${field.title}: ${displayValue}`, pageWidth - 50);
             lines.forEach((line: string) => {
               if (yPosition > pageHeight - 10) {
                 pdf.addPage();
@@ -201,7 +198,7 @@ export const generateStandardizedCPVPDF = async (
               yPosition += 5;
             });
           } else {
-            pdf.text(`${field.title}: ${value || 'Not provided'}`, 25, yPosition);
+            pdf.text(`${field.title}: ${displayValue}`, 25, yPosition);
             yPosition += 6;
           }
         });

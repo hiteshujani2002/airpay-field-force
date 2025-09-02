@@ -377,16 +377,46 @@ export const CPVFormCompletion = ({
     try {
       setIsSubmitting(true);
       
+      // Ensure all form fields have values - compile complete form data
+      const allFormFields: Record<string, any> = {};
+      
+      // Collect all field values from all sections
+      sections.forEach(section => {
+        if (Array.isArray(section.fields)) {
+          section.fields.forEach(field => {
+            // Use existing form data or field default values
+            if (formData[field.id] !== undefined) {
+              allFormFields[field.id] = formData[field.id];
+            } else if (field.value !== undefined) {
+              allFormFields[field.id] = field.value;
+            }
+          });
+        }
+      });
+      
       // Prepare completed form data with all captured values including all form fields
       const completedFormData = {
-        ...formData,
+        ...allFormFields,
+        ...formData, // Override with any explicitly set form data
         visit_date: visitDate?.toISOString() || null,
         visit_time: visitTime,
         agent_signature: agentSignature ? { 
           name: agentSignature.name,
           type: agentSignature.type,
           size: agentSignature.size 
-        } : null
+        } : null,
+        form_sections: sections, // Store the complete form structure
+        merchant_info: {
+          id: lead.id,
+          merchant_name: lead.merchant_name,
+          merchant_phone: lead.merchant_phone,
+          merchant_address: lead.merchant_address,
+          city: lead.city,
+          state: lead.state,
+          pincode: lead.pincode
+        },
+        completion_timestamp: new Date().toISOString(),
+        cpv_agent_name: lead.cpv_agent || formData.agent_name
       };
       
       // Generate standardized PDF
