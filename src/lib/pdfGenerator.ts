@@ -26,7 +26,13 @@ export interface CompletedFormData {
   [key: string]: any;
   visit_date?: Date;
   visit_time?: string;
-  agent_signature?: { name: string };
+  agent_signature?: { 
+    name?: string; 
+    fileName?: string; 
+    url?: string; 
+    type?: string; 
+    size?: number; 
+  };
 }
 
 export const generateStandardizedCPVPDF = async (
@@ -39,6 +45,10 @@ export const generateStandardizedCPVPDF = async (
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     let yPosition = 20;
+
+    console.log('PDF Generation - Merchant Info:', merchant);
+    console.log('PDF Generation - Form Data:', formData);
+    console.log('PDF Generation - Completed Data:', completedData);
 
     // Title
     pdf.setFontSize(20);
@@ -104,7 +114,7 @@ export const generateStandardizedCPVPDF = async (
       pdf.text('Form Details', 20, yPosition);
       yPosition += 15;
 
-      sections.forEach((section: any) => {
+      for (const section of sections) {
         // Check if we need a new page
         if (yPosition > pageHeight - 50) {
           pdf.addPage();
@@ -119,20 +129,22 @@ export const generateStandardizedCPVPDF = async (
 
         // Section fields
         const fields = Array.isArray(section.fields) ? section.fields : [];
-        fields.forEach((field: any) => {
+        for (const field of fields) {
           if (yPosition > pageHeight - 20) {
             pdf.addPage();
             yPosition = 20;
           }
 
           let value = '';
+          let shouldSkipTextRendering = false;
           
-          console.log(`Processing field ${field.id}, title: ${field.title}`); // Debug log
+          console.log(`PDF Field Processing - ID: ${field.id}, Title: ${field.title}`);
+          console.log(`PDF Field Processing - Available in completedData:`, completedData ? Object.keys(completedData) : 'No completed data');
           
           // CRITICAL: Always prioritize completed data - no fallbacks to preview/dummy data
           if (completedData && completedData[field.id] !== undefined && completedData[field.id] !== null && completedData[field.id] !== '') {
             value = completedData[field.id];
-            console.log(`Found completed data for ${field.id}:`, value); // Debug log
+            console.log(`PDF Field Processing - Found value for ${field.id}:`, value);
             
             // Handle special field types
             if (field.id === 'visit_date' && completedData.visit_date) {
@@ -140,12 +152,18 @@ export const generateStandardizedCPVPDF = async (
             } else if (field.id === 'visit_time' && completedData.visit_time) {
               value = completedData.visit_time;
             } else if (field.id === 'agent_signature' && completedData.agent_signature) {
-              value = typeof completedData.agent_signature === 'object' && completedData.agent_signature.name 
-                ? completedData.agent_signature.name 
-                : String(completedData.agent_signature);
+              if (typeof completedData.agent_signature === 'object') {
+                if (completedData.agent_signature.name) {
+                  value = completedData.agent_signature.name;
+                } else if (completedData.agent_signature.fileName) {
+                  value = completedData.agent_signature.fileName;
+                }
+              } else {
+                value = String(completedData.agent_signature);
+              }
             }
           } else {
-            console.log(`No completed data for ${field.id}, checking alternatives...`); // Debug log
+            console.log(`PDF Field Processing - No direct value found for ${field.id}, checking alternatives...`);
             
             // Only use stored CPV agent name from merchant data if no completed data exists
             if (field.id === 'agent_name' || (field.title && field.title.toLowerCase().includes('agent'))) {
@@ -155,9 +173,15 @@ export const generateStandardizedCPVPDF = async (
             } else if (field.id === 'visit_time' && completedData?.visit_time) {
               value = completedData.visit_time;
             } else if (field.id === 'agent_signature' && completedData?.agent_signature) {
-              value = typeof completedData.agent_signature === 'object' && completedData.agent_signature.name 
-                ? completedData.agent_signature.name 
-                : String(completedData.agent_signature);
+              if (typeof completedData.agent_signature === 'object') {
+                if (completedData.agent_signature.name) {
+                  value = completedData.agent_signature.name;
+                } else if (completedData.agent_signature.fileName) {
+                  value = completedData.agent_signature.fileName;
+                }
+              } else {
+                value = String(completedData.agent_signature);
+              }
             } else {
               // Check if field has a default value or if it's in the form preview data
               if (formData.form_preview_data && formData.form_preview_data[field.id]) {
@@ -171,54 +195,80 @@ export const generateStandardizedCPVPDF = async (
             }
           }
           
-          console.log(`Final value for ${field.id}:`, value); // Debug log
+          console.log(`PDF Field Processing - Final value for ${field.id}:`, value);
 
-          // Convert value to string and handle arrays/objects for human readability
-          if (Array.isArray(value)) {
-            value = value.join(', ');
-          } else if (typeof value === 'object' && value !== null) {
-            // Handle objects more gracefully for human readability
-            const objValue = value as any;
-            if (objValue.name) {
-              value = objValue.name;
-            } else if (objValue.label && objValue.value) {
-              value = `${objValue.label}: ${objValue.value}`;
-            } else {
-              // Convert object to readable key-value pairs
-              value = Object.entries(value)
-                .map(([key, val]) => `${key}: ${val}`)
-                .join(', ');
-            }
-          } else {
-            value = String(value || '');
-          }
-
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'normal');
-          
-          // Ensure consistent display for all users - show exactly what was filled
-          const displayValue = value || 'Not provided during verification';
-          
-          // Split long text to prevent overflow
-          const maxLineLength = 60;
-          if (displayValue.length > maxLineLength) {
-            const lines = pdf.splitTextToSize(`${field.title}: ${displayValue}`, pageWidth - 50);
-            lines.forEach((line: string) => {
-              if (yPosition > pageHeight - 10) {
-                pdf.addPage();
-                yPosition = 20;
+          // Handle file/image fields - try to embed images (synchronously for now)
+          if ((field.type === 'image' || field.type === 'file') && completedData && completedData[field.id]) {
+            try {
+              const fileData = completedData[field.id];
+              if (typeof fileData === 'object' && (fileData.url || fileData.fileName)) {
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(`${field.title}: ${fileData.fileName || 'File uploaded'}`, 25, yPosition);
+                
+                if (fileData.url) {
+                  pdf.text(`URL: ${fileData.url}`, 25, yPosition + 5);
+                  yPosition += 10;
+                } else {
+                  yPosition += 6;
+                }
+                shouldSkipTextRendering = true;
               }
-              pdf.text(line, 25, yPosition);
-              yPosition += 5;
-            });
-          } else {
-            pdf.text(`${field.title}: ${displayValue}`, 25, yPosition);
-            yPosition += 6;
+            } catch (error) {
+              console.error('Error processing file field:', error);
+            }
           }
-        });
+
+          if (!shouldSkipTextRendering) {
+            // Convert value to string and handle arrays/objects for human readability
+            if (Array.isArray(value)) {
+              value = value.join(', ');
+            } else if (typeof value === 'object' && value !== null) {
+              // Handle objects more gracefully for human readability
+              const objValue = value as any;
+              if (objValue.fileName) {
+                value = objValue.fileName;
+              } else if (objValue.name) {
+                value = objValue.name;
+              } else if (objValue.label && objValue.value) {
+                value = `${objValue.label}: ${objValue.value}`;
+              } else {
+                // Convert object to readable key-value pairs
+                value = Object.entries(value)
+                  .map(([key, val]) => `${key}: ${val}`)
+                  .join(', ');
+              }
+            } else {
+              value = String(value || '');
+            }
+
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'normal');
+            
+            // Ensure consistent display for all users - show exactly what was filled
+            const displayValue = value || 'Not provided during verification';
+            
+            // Split long text to prevent overflow
+            const maxLineLength = 60;
+            if (displayValue.length > maxLineLength) {
+              const lines = pdf.splitTextToSize(`${field.title}: ${displayValue}`, pageWidth - 50);
+              lines.forEach((line: string) => {
+                if (yPosition > pageHeight - 10) {
+                  pdf.addPage();
+                  yPosition = 20;
+                }
+                pdf.text(line, 25, yPosition);
+                yPosition += 5;
+              });
+            } else {
+              pdf.text(`${field.title}: ${displayValue}`, 25, yPosition);
+              yPosition += 6;
+            }
+          }
+        }
 
         yPosition += 8; // Extra space between sections
-      });
+      }
     }
 
     // Add completion timestamp if this is a completed form

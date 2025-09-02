@@ -109,10 +109,56 @@ export const CPVFormCompletion = ({
     }));
   };
 
-  const handleImageUpload = (fieldId: string, file: File) => {
-    // In a real implementation, you would upload the file to storage
-    // For now, we'll just store the file name
-    handleFieldChange(fieldId, file.name);
+  const handleImageUpload = async (fieldId: string, file: File) => {
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${fieldId}_${lead.id}_${Date.now()}.${fileExt}`;
+      const filePath = `cpv-images/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('cpv-pdfs')  // Using existing bucket
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        toast({
+          title: 'Upload failed',
+          description: 'Failed to upload image. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('cpv-pdfs')
+        .getPublicUrl(filePath);
+
+      // Store both file info and URL
+      handleFieldChange(fieldId, {
+        fileName: file.name,
+        filePath: filePath,
+        url: urlData.publicUrl,
+        type: file.type,
+        size: file.size
+      });
+
+      toast({
+        title: 'Upload successful',
+        description: 'Image uploaded successfully',
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Failed to upload image. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const renderField = (field: any) => {
@@ -188,7 +234,8 @@ export const CPVFormCompletion = ({
                   const file = e.target.files?.[0];
                   if (file && field.id === 'agent_signature') {
                     setAgentSignature(file);
-                    handleFieldChange(field.id, file.name);
+                    // Also upload to storage
+                    handleImageUpload(field.id, file);
                   } else if (file) {
                     handleImageUpload(field.id, file);
                   }
@@ -199,7 +246,9 @@ export const CPVFormCompletion = ({
                 <span className="text-sm text-muted-foreground">
                   {(field.id === 'agent_signature' && agentSignature) ? 
                     `Uploaded: ${agentSignature.name}` : 
-                    value ? `Uploaded: ${value}` : 'Click to upload file'}
+                    (formData[field.id] && typeof formData[field.id] === 'object' && formData[field.id].fileName) ?
+                    `Uploaded: ${formData[field.id].fileName}` :
+                    formData[field.id] ? `Uploaded: ${formData[field.id]}` : 'Click to upload file'}
                 </span>
               </Label>
             </div>
@@ -226,7 +275,9 @@ export const CPVFormCompletion = ({
               />
               <Label htmlFor={field.id} className="cursor-pointer">
                 <span className="text-sm text-muted-foreground">
-                  {value ? `Uploaded: ${value}` : 'Click to upload image'}
+                  {(formData[field.id] && typeof formData[field.id] === 'object' && formData[field.id].fileName) ?
+                    `Uploaded: ${formData[field.id].fileName}` :
+                    formData[field.id] ? `Uploaded: ${formData[field.id]}` : 'Click to upload image'}
                 </span>
               </Label>
             </div>
@@ -398,11 +449,49 @@ export const CPVFormCompletion = ({
       if (visitDate) allFormFields['visit_date'] = visitDate.toISOString();
       if (visitTime) allFormFields['visit_time'] = visitTime;
       if (agentSignature) {
-        allFormFields['agent_signature'] = {
-          name: agentSignature.name,
-          type: agentSignature.type,
-          size: agentSignature.size
-        };
+        // Upload agent signature first
+        try {
+          const fileExt = agentSignature.name.split('.').pop();
+          const fileName = `agent_signature_${lead.id}_${Date.now()}.${fileExt}`;
+          const filePath = `cpv-images/${fileName}`;
+
+          const { data, error } = await supabase.storage
+            .from('cpv-pdfs')
+            .upload(filePath, agentSignature, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (!error) {
+            const { data: urlData } = supabase.storage
+              .from('cpv-pdfs')
+              .getPublicUrl(filePath);
+
+            allFormFields['agent_signature'] = {
+              name: agentSignature.name,
+              fileName: agentSignature.name,
+              url: urlData.publicUrl,
+              type: agentSignature.type,
+              size: agentSignature.size
+            };
+          } else {
+            console.error('Agent signature upload error:', error);
+            allFormFields['agent_signature'] = {
+              name: agentSignature.name,
+              fileName: agentSignature.name,
+              type: agentSignature.type,
+              size: agentSignature.size
+            };
+          }
+        } catch (uploadError) {
+          console.error('Error uploading agent signature:', uploadError);
+          allFormFields['agent_signature'] = {
+            name: agentSignature.name,
+            fileName: agentSignature.name,
+            type: agentSignature.type,
+            size: agentSignature.size
+          };
+        }
       }
       if (lead.cpv_agent) allFormFields['agent_name'] = lead.cpv_agent;
       
@@ -412,11 +501,7 @@ export const CPVFormCompletion = ({
         ...formData, // Override with any explicitly set form data
         visit_date: visitDate?.toISOString() || null,
         visit_time: visitTime,
-        agent_signature: agentSignature ? { 
-          name: agentSignature.name,
-          type: agentSignature.type,
-          size: agentSignature.size 
-        } : null,
+        agent_signature: allFormFields['agent_signature'] || null,
         form_sections: sections, // Store the complete form structure
         merchant_info: {
           id: lead.id,
