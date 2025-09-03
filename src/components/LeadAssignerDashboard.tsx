@@ -5,10 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Eye, MoreHorizontal, ArrowLeft, FileDown } from 'lucide-react'
+import { Eye, MoreHorizontal, ArrowLeft, FileDown, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { format } from 'date-fns'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 
 interface AssignedCPVForm {
   id: string;
@@ -29,6 +31,8 @@ const LeadAssignerDashboard = () => {
   
   const [assignedForms, setAssignedForms] = useState<AssignedCPVForm[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedFormData, setSelectedFormData] = useState<any>(null)
+  const [showFormPreview, setShowFormPreview] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -238,12 +242,37 @@ const LeadAssignerDashboard = () => {
     }
   }
 
-  const handleViewForm = (form: AssignedCPVForm) => {
-    // TODO: Implement form preview modal
-    toast({
-      title: 'Form Preview',
-      description: 'Form preview functionality will be implemented',
-    })
+  const handleViewForm = async (form: AssignedCPVForm) => {
+    try {
+      // Fetch the complete form data with sections
+      const { data: formData, error } = await supabase
+        .from('cpv_forms')
+        .select('id, name, initiative, sections, form_preview_data')
+        .eq('id', form.id)
+        .single()
+
+      if (error) throw error
+
+      if (!formData.sections || !Array.isArray(formData.sections) || formData.sections.length === 0) {
+        toast({
+          title: 'No Form Data',
+          description: 'This form has no sections to preview',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Set form data for preview
+      setSelectedFormData(formData)
+      setShowFormPreview(true)
+    } catch (error: any) {
+      console.error('Error fetching form data:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load form preview',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleMoreDetails = (form: AssignedCPVForm) => {
@@ -360,6 +389,83 @@ const LeadAssignerDashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Form Preview Dialog */}
+      <Dialog open={showFormPreview} onOpenChange={setShowFormPreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-xl font-semibold">
+                  {selectedFormData?.name} - Form Preview
+                </DialogTitle>
+                <DialogDescription className="mt-1">
+                  Initiative: {selectedFormData?.initiative}
+                </DialogDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFormPreview(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          
+          {selectedFormData && selectedFormData.sections && Array.isArray(selectedFormData.sections) && (
+            <div className="space-y-6 mt-4">
+              {selectedFormData.sections.map((section: any) => (
+                <Card key={section.id} className="border border-gray-200">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">{section.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {section.fields && Array.isArray(section.fields) && section.fields.map((field: any) => {
+                        if (!field.visible) return null;
+
+                        const baseClasses = "w-full p-2 border rounded-md bg-gray-50"
+                        
+                        if (field.type === "image") {
+                          return (
+                            <div key={field.id} className="space-y-2">
+                              <Label className="text-sm font-medium">
+                                {field.title}
+                                {field.mandatory && <span className="text-red-500 ml-1">*</span>}
+                              </Label>
+                              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                                <FileDown className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-500">Upload {field.documentName || field.title}</p>
+                                <p className="text-xs text-gray-400">Maximum {field.numberOfClicks || 1} image(s)</p>
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div key={field.id} className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              {field.title}
+                              {field.mandatory && <span className="text-red-500 ml-1">*</span>}
+                            </Label>
+                            <input
+                              type="text"
+                              disabled
+                              placeholder={`Enter ${field.title.toLowerCase()}`}
+                              className={baseClasses}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

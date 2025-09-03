@@ -118,10 +118,12 @@ const LeadsManagement = () => {
       if (agentError) throw agentError
       setCpvAgents(agentData || [])
 
-      // Get agent names for assigned merchants
+      // Get agent names for assigned merchants - ensure real-time data
       const assignedAgentIds = merchantData
         ?.filter(m => m.assigned_cpv_agent_id)
         .map(m => m.assigned_cpv_agent_id) || []
+
+      console.log('Assigned agent IDs:', assignedAgentIds)
 
       if (assignedAgentIds.length > 0) {
         const { data: agentNames, error: agentNameError } = await supabase
@@ -129,17 +131,24 @@ const LeadsManagement = () => {
           .select('user_id, username')
           .in('user_id', assignedAgentIds)
 
+        console.log('Agent names query result:', { agentNames, agentNameError })
+
         if (!agentNameError && agentNames) {
           const agentMap = new Map(agentNames.map(a => [a.user_id, a.username]))
+          console.log('Agent map:', agentMap)
+          
           merchantData?.forEach((merchant: any) => {
             if (merchant.assigned_cpv_agent_id) {
-              merchant.cpv_agent_name = agentMap.get(merchant.assigned_cpv_agent_id) || 'Unknown Agent'
+              const agentName = agentMap.get(merchant.assigned_cpv_agent_id)
+              merchant.cpv_agent_name = agentName || 'Unknown Agent'
+              console.log(`Merchant ${merchant.merchant_name} assigned to agent: ${merchant.cpv_agent_name}`)
             } else {
-              merchant.cpv_agent_name = null // Clear any stale data
+              merchant.cpv_agent_name = null
             }
           })
         }
       } else {
+        console.log('No agents assigned to any merchants')
         // Clear cpv_agent_name for all merchants if no agents are assigned
         merchantData?.forEach((merchant: any) => {
           merchant.cpv_agent_name = null
