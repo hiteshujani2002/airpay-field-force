@@ -200,7 +200,14 @@ const MerchantDataView = () => {
 
       const completedFormData = merchantData.completed_form_data as any;
       
-      console.log('Retrieved completed form data:', completedFormData); // Debug log
+      console.log('=== PDF Generation Debug ===');
+      console.log('User role generating PDF:', user);
+      console.log('Merchant data:', merchant);
+      console.log('Form structure:', formStructure);
+      console.log('Retrieved completed form data:', completedFormData);
+      console.log('Type of completed form data:', typeof completedFormData);
+      console.log('Keys in completed form data:', completedFormData ? Object.keys(completedFormData) : 'No data');
+      console.log('=== End PDF Generation Debug ===');
       
       // Validate that essential form data is present
       if (!completedFormData || typeof completedFormData !== 'object') {

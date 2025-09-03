@@ -141,8 +141,8 @@ export const generateStandardizedCPVPDF = async (
           console.log(`PDF Field Processing - ID: ${field.id}, Title: ${field.title}`);
           console.log(`PDF Field Processing - Available in completedData:`, completedData ? Object.keys(completedData) : 'No completed data');
           
-          // CRITICAL: Always prioritize completed data - no fallbacks to preview/dummy data
-          if (completedData && completedData[field.id] !== undefined && completedData[field.id] !== null && completedData[field.id] !== '') {
+          // CRITICAL: Always prioritize completed data - ensure single source of truth
+          if (completedData && completedData.hasOwnProperty(field.id) && completedData[field.id] !== null && completedData[field.id] !== '') {
             value = completedData[field.id];
             console.log(`PDF Field Processing - Found value for ${field.id}:`, value);
             
