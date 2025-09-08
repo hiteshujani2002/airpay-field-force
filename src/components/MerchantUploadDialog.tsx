@@ -108,7 +108,7 @@ const MerchantUploadDialog = ({ open, onOpenChange, onUpload, formName }: Mercha
               </p>
             )}
             <div className="text-xs text-muted-foreground">
-              Required columns: Merchant Name, Merchant Phone Number, Merchant Address, City, State, Pincode
+              Required columns: Unique ID, Merchant Name, State, City, Pincode, Address
             </div>
           </div>
 

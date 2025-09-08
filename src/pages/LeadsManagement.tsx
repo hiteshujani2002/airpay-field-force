@@ -261,10 +261,13 @@ const LeadsManagement = () => {
 
       // Validate required columns
       const firstRow = jsonData[0] || {}
-      if (!('Unique ID' in firstRow)) {
+      const requiredColumns = ['Unique ID', 'Merchant Name', 'State', 'City', 'Pincode', 'Address']
+      const missingColumns = requiredColumns.filter(col => !(col in firstRow))
+      
+      if (missingColumns.length > 0) {
         toast({
           title: 'Invalid File',
-          description: 'File must contain a "Unique ID" column',
+          description: `Missing required columns: ${missingColumns.join(', ')}`,
           variant: 'destructive',
         })
         return
@@ -587,7 +590,7 @@ const LeadsManagement = () => {
                         onChange={(e) => setAssignFile(e.target.files?.[0] || null)}
                       />
                       <p className="text-sm text-muted-foreground mt-1">
-                        File must contain a "Unique ID" column with merchant IDs
+                        Required columns: Unique ID, Merchant Name, State, City, Pincode, Address
                       </p>
                     </div>
                     <div className="flex gap-2">
