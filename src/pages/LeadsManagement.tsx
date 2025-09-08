@@ -284,6 +284,32 @@ const LeadsManagement = () => {
         return
       }
 
+      // Get current merchants for this Lead Assigner to find matching IDs
+      const { data: currentMerchants, error: fetchError } = await supabase
+        .from('cpv_merchant_status')
+        .select('id')
+        .eq('assigned_lead_assigner_id', user?.id)
+
+      if (fetchError) throw fetchError
+
+      // Match short IDs from Excel with full UUIDs from database
+      const matchingUUIDs = currentMerchants
+        ?.filter(merchant => 
+          merchantIds.some(shortId => 
+            merchant.id.toLowerCase().endsWith(shortId.toLowerCase())
+          )
+        )
+        .map(merchant => merchant.id) || []
+
+      if (matchingUUIDs.length === 0) {
+        toast({
+          title: 'No Matches',
+          description: 'No matching merchant IDs found in your assigned merchants',
+          variant: 'destructive',
+        })
+        return
+      }
+
       // Update assignments
       const { error } = await supabase
         .from('cpv_merchant_status')
@@ -292,14 +318,14 @@ const LeadsManagement = () => {
           cpv_agent_assigned_on: new Date().toISOString(),
           verification_status: 'assigned'
         })
-        .in('id', merchantIds)
+        .in('id', matchingUUIDs)
         .eq('assigned_lead_assigner_id', user?.id)
 
       if (error) throw error
 
       toast({
         title: 'Success',
-        description: `${merchantIds.length} merchants assigned successfully`,
+        description: `${matchingUUIDs.length} merchants assigned successfully`,
       })
 
       setBulkAssignOpen(false)
