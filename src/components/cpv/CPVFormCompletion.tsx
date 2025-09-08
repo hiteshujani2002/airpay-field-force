@@ -130,7 +130,7 @@ export const CPVFormCompletion = ({
           description: 'Failed to upload image. Please try again.',
           variant: 'destructive',
         });
-        return;
+        return Promise.reject(error);
       }
 
       // Get public URL
@@ -151,6 +151,8 @@ export const CPVFormCompletion = ({
         title: 'Upload successful',
         description: 'Image uploaded successfully',
       });
+      
+      return Promise.resolve();
     } catch (error) {
       console.error('Error uploading image:', error);
       toast({
@@ -158,6 +160,7 @@ export const CPVFormCompletion = ({
         description: 'Failed to upload image. Please try again.',
         variant: 'destructive',
       });
+      return Promise.reject(error);
     }
   };
 
@@ -256,30 +259,51 @@ export const CPVFormCompletion = ({
         );
 
       case 'image':
+        const imageCount = field.imageCount || 1;
+        const fieldImages = Array.isArray(formData[field.id]) ? formData[field.id] : [];
+        
         return (
           <div key={field.id} className="space-y-2">
             <Label htmlFor={field.id}>
               {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+              {imageCount > 1 && <span className="text-sm text-muted-foreground ml-2">({fieldImages.length}/{imageCount} uploaded)</span>}
             </Label>
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-              <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <Input
-                id={field.id}
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(field.id, file);
-                }}
-                className="hidden"
-              />
-              <Label htmlFor={field.id} className="cursor-pointer">
-                <span className="text-sm text-muted-foreground">
-                  {(formData[field.id] && typeof formData[field.id] === 'object' && formData[field.id].fileName) ?
-                    `Uploaded: ${formData[field.id].fileName}` :
-                    formData[field.id] ? `Uploaded: ${formData[field.id]}` : 'Click to upload image'}
-                </span>
-              </Label>
+            <div className="grid gap-2" style={{ gridTemplateColumns: imageCount > 1 ? 'repeat(auto-fit, minmax(200px, 1fr))' : '1fr' }}>
+              {Array.from({ length: imageCount }).map((_, index) => {
+                const hasImage = fieldImages[index];
+                return (
+                  <div key={`${field.id}-${index}`} className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                    <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <Input
+                      id={`${field.id}-${index}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleImageUpload(`${field.id}-${index}`, file).then(() => {
+                            // Update the array for this field
+                            const updatedImages = [...fieldImages];
+                            updatedImages[index] = formData[`${field.id}-${index}`];
+                            handleFieldChange(field.id, updatedImages);
+                          });
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Label htmlFor={`${field.id}-${index}`} className="cursor-pointer">
+                      <span className="text-sm text-muted-foreground">
+                        {hasImage && typeof hasImage === 'object' && hasImage.fileName ? 
+                          `Uploaded: ${hasImage.fileName}` : 
+                          hasImage ? 
+                            `Uploaded: ${hasImage}` : 
+                            `Click to upload ${field.title} ${imageCount > 1 ? `(${index + 1}/${imageCount})` : ''}`
+                        }
+                      </span>
+                    </Label>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
