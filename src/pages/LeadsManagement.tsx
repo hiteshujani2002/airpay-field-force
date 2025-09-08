@@ -171,15 +171,15 @@ const LeadsManagement = () => {
   const applyFilters = () => {
     let filtered = [...merchants]
 
-    if (selectedState) {
+    if (selectedState && selectedState !== 'all-states') {
       filtered = filtered.filter(m => m.state.toLowerCase().includes(selectedState.toLowerCase()))
     }
 
-    if (selectedStatus) {
+    if (selectedStatus && selectedStatus !== 'all-statuses') {
       filtered = filtered.filter(m => m.verification_status === selectedStatus)
     }
 
-    if (selectedAgent) {
+    if (selectedAgent && selectedAgent !== 'all-agents') {
       if (selectedAgent === 'unassigned') {
         filtered = filtered.filter(m => !m.assigned_cpv_agent_id)
       } else {
@@ -191,9 +191,9 @@ const LeadsManagement = () => {
   }
 
   const clearFilters = () => {
-    setSelectedState('')
-    setSelectedStatus('')
-    setSelectedAgent('')
+    setSelectedState('all-states')
+    setSelectedStatus('all-statuses')
+    setSelectedAgent('all-agents')
   }
 
   const getStatusBadge = (status: string) => {
@@ -492,7 +492,7 @@ const LeadsManagement = () => {
                           <SelectValue placeholder="Select state" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All States</SelectItem>
+                          <SelectItem value="all-states">All States</SelectItem>
                           {uniqueStates.map(state => (
                             <SelectItem key={state} value={state}>{state}</SelectItem>
                           ))}
@@ -506,7 +506,7 @@ const LeadsManagement = () => {
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Statuses</SelectItem>
+                          <SelectItem value="all-statuses">All Statuses</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="assigned">Assigned</SelectItem>
                           <SelectItem value="completed">Completed</SelectItem>
@@ -522,7 +522,7 @@ const LeadsManagement = () => {
                           <SelectValue placeholder="Select agent" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">All Agents</SelectItem>
+                          <SelectItem value="all-agents">All Agents</SelectItem>
                           <SelectItem value="unassigned">Yet to be Assigned</SelectItem>
                           {cpvAgents.map(agent => (
                             <SelectItem key={agent.user_id} value={agent.user_id}>
