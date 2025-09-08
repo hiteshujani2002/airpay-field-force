@@ -69,7 +69,6 @@ const MerchantDataView = () => {
         .from('cpv_forms')
         .select('id, name, initiative')
         .eq('id', formId)
-        .eq('user_id', user.id)
         .single()
 
       if (formError) throw formError
