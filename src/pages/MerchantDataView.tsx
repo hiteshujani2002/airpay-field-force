@@ -22,6 +22,7 @@ interface MerchantData {
   state: string;
   pincode: string;
   assigned_lead_assigner_id?: string;
+  assigned_cpv_agent_id?: string;
   cpv_agent?: string;
   assigned_on?: string;
   cpv_agent_assigned_on?: string;
@@ -50,6 +51,7 @@ const MerchantDataView = () => {
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [showReassignDialog, setShowReassignDialog] = useState(false)
   const [leadAssigners, setLeadAssigners] = useState<{ [key: string]: string }>({})
+  const [cpvAgents, setCPVAgents] = useState<{ [key: string]: string }>({})
 
   useEffect(() => {
     if (formId && user) {
@@ -104,6 +106,27 @@ const MerchantDataView = () => {
             setLeadAssigners(leadAssignersMap)
           }
         }
+
+        // Load CPV agents names for display
+        const uniqueCPVAgentIds = [...new Set(merchantsData
+          .map(m => m.assigned_cpv_agent_id)
+          .filter(Boolean)
+        )]
+
+        if (uniqueCPVAgentIds.length > 0) {
+          const { data: cpvAgentsData, error: cpvAgentsError } = await supabase
+            .from('user_roles')
+            .select('user_id, username')
+            .in('user_id', uniqueCPVAgentIds)
+
+          if (!cpvAgentsError && cpvAgentsData) {
+            const cpvAgentsMap = cpvAgentsData.reduce((acc, ca) => {
+              acc[ca.user_id] = ca.username
+              return acc
+            }, {} as { [key: string]: string })
+            setCPVAgents(cpvAgentsMap)
+          }
+        }
       }
 
     } catch (error: any) {
@@ -132,6 +155,10 @@ const MerchantDataView = () => {
 
   const getLeadAssignerName = (leadAssignerId?: string) => {
     return leadAssignerId ? (leadAssigners[leadAssignerId] || 'Unknown') : 'Not Assigned'
+  }
+
+  const getCPVAgentName = (cpvAgentId?: string) => {
+    return cpvAgentId ? (cpvAgents[cpvAgentId] || 'Unknown') : 'NA'
   }
 
   const handleDownloadFile = async (merchant: MerchantData) => {
@@ -480,7 +507,7 @@ const MerchantDataView = () => {
                             <TableCell>{merchant.state}</TableCell>
                             <TableCell>{merchant.pincode}</TableCell>
                             <TableCell>{getLeadAssignerName(merchant.assigned_lead_assigner_id)}</TableCell>
-                            <TableCell>{merchant.cpv_agent || 'Not Assigned'}</TableCell>
+                            <TableCell>{getCPVAgentName(merchant.assigned_cpv_agent_id)}</TableCell>
                             <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
                             <TableCell>{new Date(merchant.uploaded_on).toLocaleDateString()}</TableCell>
                             <TableCell>
