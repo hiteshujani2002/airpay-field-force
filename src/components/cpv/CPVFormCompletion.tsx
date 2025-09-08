@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CalendarIcon, Camera, ArrowRight, ArrowLeft, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -167,6 +168,81 @@ export const CPVFormCompletion = ({
   const renderField = (field: any) => {
     // Use field.value as default for agent_name, otherwise use formData
     const value = field.id === 'agent_name' ? (formData[field.id] || field.value || '') : (formData[field.id] || '');
+
+    // Handle special business fields first
+    if (field.title === "Address Confirmed") {
+      return (
+        <div key={field.id} className="space-y-2">
+          <Label>
+            {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+          </Label>
+          <RadioGroup value={value} onValueChange={(value) => handleFieldChange(field.id, value)}>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="yes" id={`${field.id}-yes`} />
+              <Label htmlFor={`${field.id}-yes`}>Yes</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="no" id={`${field.id}-no`} />
+              <Label htmlFor={`${field.id}-no`}>No</Label>
+            </div>
+          </RadioGroup>
+        </div>
+      );
+    }
+
+    if (field.title === "Nature of Business" || field.title === "Type of business" || field.title === "Office Ownership") {
+      // Define default options for these special fields
+      let options = [];
+      switch (field.title) {
+        case "Nature of Business":
+          options = ["Retail", "Manufacturing", "Service", "Trading", "Professional Services", "Technology", "Healthcare", "Education", "Other"];
+          break;
+        case "Type of business":
+          options = ["Sole Proprietorship", "Partnership", "Private Limited Company", "Public Limited Company", "LLP", "Other"];
+          break;
+        case "Office Ownership":
+          options = ["Owned", "Rented", "Leased", "Shared"];
+          break;
+      }
+      
+      return (
+        <div key={field.id} className="space-y-2">
+          <Label htmlFor={field.id}>
+            {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+          </Label>
+          <Select value={value} onValueChange={(value) => handleFieldChange(field.id, value)}>
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${field.title.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option: string) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    // Handle fields that should only accept numbers based on title
+    if (field.title.toLowerCase().includes("number of years") || field.title.toLowerCase().includes("pincode") || field.dataType === "numbers") {
+      return (
+        <div key={field.id} className="space-y-2">
+          <Label htmlFor={field.id}>
+            {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+          </Label>
+          <Input
+            id={field.id}
+            type="number"
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            placeholder={`Enter ${field.title.toLowerCase()}`}
+          />
+        </div>
+      );
+    }
 
     switch (field.type) {
       case 'text':
@@ -388,6 +464,23 @@ export const CPVFormCompletion = ({
                 </span>
               </Label>
             </div>
+          </div>
+        );
+
+      case 'radio':
+        return (
+          <div key={field.id} className="space-y-2">
+            <Label>
+              {field.title} {field.mandatory && <span className="text-destructive">*</span>}
+            </Label>
+            <RadioGroup value={value} onValueChange={(value) => handleFieldChange(field.id, value)}>
+              {field.options?.map((option: string) => (
+                <div key={option} className="flex items-center space-x-2">
+                  <RadioGroupItem value={option} id={`${field.id}-${option}`} />
+                  <Label htmlFor={`${field.id}-${option}`}>{option}</Label>
+                </div>
+              ))}
+            </RadioGroup>
           </div>
         );
 
