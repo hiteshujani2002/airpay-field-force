@@ -72,6 +72,11 @@ const LeadsManagement = () => {
   const [assignFile, setAssignFile] = useState<File | null>(null)
   const [bulkAssignAgent, setBulkAssignAgent] = useState('')
   const [individualAssignAgent, setIndividualAssignAgent] = useState('')
+  
+  // Reassignment states
+  const [bulkReassignOpen, setBulkReassignOpen] = useState(false)
+  const [reassignFile, setReassignFile] = useState<File | null>(null)
+  const [bulkReassignAgent, setBulkReassignAgent] = useState('')
 
   useEffect(() => {
     if (formId && user) {
@@ -337,6 +342,107 @@ const LeadsManagement = () => {
       toast({
         title: 'Error',
         description: 'Failed to assign merchants',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleBulkReassign = async () => {
+    if (!reassignFile || !bulkReassignAgent) {
+      toast({
+        title: 'Error',
+        description: 'Please select both a file and a CPV agent',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      // Parse Excel file
+      const data = await reassignFile.arrayBuffer()
+      const workbook = XLSX.read(data, { type: 'array' })
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
+
+      // Validate required columns
+      const firstRow = jsonData[0] || {}
+      const requiredColumns = ['Unique ID', 'Merchant Name', 'State', 'City', 'Pincode', 'Address']
+      const missingColumns = requiredColumns.filter(col => !(col in firstRow))
+      
+      if (missingColumns.length > 0) {
+        toast({
+          title: 'Invalid File',
+          description: `Missing required columns: ${missingColumns.join(', ')}`,
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const merchantIds = jsonData.map(row => row['Unique ID']).filter(Boolean)
+      
+      if (merchantIds.length === 0) {
+        toast({
+          title: 'No Data',
+          description: 'No valid merchant IDs found in the file',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Get current merchants for this Lead Assigner to find matching IDs
+      const { data: currentMerchants, error: fetchError } = await supabase
+        .from('cpv_merchant_status')
+        .select('id')
+        .eq('assigned_lead_assigner_id', user?.id)
+
+      if (fetchError) throw fetchError
+
+      // Match short IDs from Excel with full UUIDs from database
+      const matchingUUIDs = currentMerchants
+        ?.filter(merchant => 
+          merchantIds.some(shortId => 
+            merchant.id.toLowerCase().endsWith(shortId.toLowerCase())
+          )
+        )
+        .map(merchant => merchant.id) || []
+
+      if (matchingUUIDs.length === 0) {
+        toast({
+          title: 'No Matches',
+          description: 'No matching merchant IDs found in your assigned merchants',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Update reassignments
+      const { error } = await supabase
+        .from('cpv_merchant_status')
+        .update({ 
+          assigned_cpv_agent_id: bulkReassignAgent,
+          cpv_agent_assigned_on: new Date().toISOString(),
+          verification_status: 'assigned'
+        })
+        .in('id', matchingUUIDs)
+        .eq('assigned_lead_assigner_id', user?.id)
+
+      if (error) throw error
+
+      toast({
+        title: 'Success',
+        description: `${matchingUUIDs.length} merchants reassigned successfully`,
+      })
+
+      setBulkReassignOpen(false)
+      setReassignFile(null)
+      setBulkReassignAgent('')
+      loadData()
+    } catch (error: any) {
+      console.error('Error in bulk reassignment:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to reassign merchants',
         variant: 'destructive',
       })
     }
@@ -629,6 +735,65 @@ const LeadsManagement = () => {
                       <Button 
                         variant="outline" 
                         onClick={() => setBulkAssignOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={bulkReassignOpen} onOpenChange={setBulkReassignOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Reassign
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Bulk Reassignment</DialogTitle>
+                    <DialogDescription>
+                      Upload a spreadsheet to reassign multiple merchants to a different CPV agent
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="reassign-agent">Select New CPV Agent</Label>
+                      <Select value={bulkReassignAgent} onValueChange={setBulkReassignAgent}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose an agent" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cpvAgents.map(agent => (
+                            <SelectItem key={agent.user_id} value={agent.user_id}>
+                              {agent.username}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="reassign-file">Upload File</Label>
+                      <Input
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={(e) => setReassignFile(e.target.files?.[0] || null)}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Required columns: Unique ID, Merchant Name, State, City, Pincode, Address
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={handleBulkReassign}
+                        disabled={!reassignFile || !bulkReassignAgent}
+                      >
+                        Reassign All
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setBulkReassignOpen(false)}
                       >
                         Cancel
                       </Button>
