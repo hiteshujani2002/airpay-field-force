@@ -113,17 +113,30 @@ const MerchantDataView = () => {
           .filter(Boolean)
         )]
 
+        console.log('Debug CPV Agents:', {
+          merchantsData: merchantsData.map(m => ({ 
+            id: m.id, 
+            merchant_name: m.merchant_name,
+            assigned_cpv_agent_id: m.assigned_cpv_agent_id 
+          })),
+          uniqueCPVAgentIds,
+          uniqueCPVAgentIdsCount: uniqueCPVAgentIds.length
+        });
+
         if (uniqueCPVAgentIds.length > 0) {
           const { data: cpvAgentsData, error: cpvAgentsError } = await supabase
             .from('user_roles')
             .select('user_id, username')
             .in('user_id', uniqueCPVAgentIds)
 
+          console.log('CPV Agents query result:', { cpvAgentsData, cpvAgentsError });
+
           if (!cpvAgentsError && cpvAgentsData) {
             const cpvAgentsMap = cpvAgentsData.reduce((acc, ca) => {
               acc[ca.user_id] = ca.username
               return acc
             }, {} as { [key: string]: string })
+            console.log('CPV Agents map:', cpvAgentsMap);
             setCPVAgents(cpvAgentsMap)
           }
         }
@@ -158,6 +171,7 @@ const MerchantDataView = () => {
   }
 
   const getCPVAgentName = (cpvAgentId?: string) => {
+    console.log('Getting CPV agent name for ID:', cpvAgentId, 'Available agents:', cpvAgents);
     return cpvAgentId ? (cpvAgents[cpvAgentId] || 'Unknown') : 'NA'
   }
 
