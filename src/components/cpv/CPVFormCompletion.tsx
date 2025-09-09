@@ -710,6 +710,13 @@ export const CPVFormCompletion = ({
       downloadPDF(pdfBlob, filename);
 
       // Update the merchant status with all data including the PDF URL
+      console.log('Updating merchant status for lead ID:', lead.id);
+      console.log('Update payload:', {
+        verification_status: 'verified',
+        completed_form_data: completedFormData,
+        verification_pdf_url: urlData.publicUrl
+      });
+
       const { error } = await supabase
         .from('cpv_merchant_status')
         .update({ 
@@ -719,7 +726,10 @@ export const CPVFormCompletion = ({
         })
         .eq('id', lead.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database update error:', error);
+        throw new Error(`Database update failed: ${error.message}`);
+      }
 
       toast({
         title: 'CPV Completed',
