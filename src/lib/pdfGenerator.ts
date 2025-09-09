@@ -58,14 +58,15 @@ export const generateStandardizedCPVPDF = async (
   completedData?: CompletedFormData
 ): Promise<Blob> => {
   try {
+    console.log('=== PDF GENERATION DEBUG ===');
+    console.log('Merchant:', merchant);
+    console.log('Form Data:', formData);
+    console.log('Completed Data:', completedData);
+    
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     let yPosition = 20;
-
-    console.log('PDF Generation - Merchant Info:', merchant);
-    console.log('PDF Generation - Form Data:', formData);
-    console.log('PDF Generation - Completed Data:', completedData);
 
     // Title
     pdf.setFontSize(20);
@@ -215,11 +216,70 @@ export const generateStandardizedCPVPDF = async (
           console.log(`PDF Field Processing - Final value for ${field.id}:`, value);
 
           // Handle file/image fields - display uploaded images with actual images in PDF
-          if ((field.type === 'image' || field.type === 'file') && completedData && completedData[field.id]) {
-            try {
-              const fileData = completedData[field.id];
+          if ((field.type === 'image' || field.type === 'file') && completedData) {
+            console.log(`Processing image field: ${field.id}, type: ${field.type}`);
+            console.log(`Field data in completedData:`, completedData[field.id]);
+            
+            // First check for individual image keys (fieldId-0, fieldId-1, etc.)
+            const imageKeys = Object.keys(completedData).filter(key => key.startsWith(`${field.id}-`)).sort();
+            console.log(`Found individual image keys for ${field.id}:`, imageKeys);
+            
+            if (imageKeys.length > 0) {
+              pdf.setFontSize(10);
+              pdf.setFont('helvetica', 'bold');
+              pdf.text(`${field.title}:`, 25, yPosition);
+              yPosition += 6;
               
-              // Handle array of images (multiple image fields)
+              for (let index = 0; index < imageKeys.length; index++) {
+                const key = imageKeys[index];
+                const imageData = completedData[key];
+                console.log(`Processing image key ${key}:`, imageData);
+                
+                if (imageData && typeof imageData === 'object' && (imageData.url || imageData.fileName)) {
+                  pdf.setFont('helvetica', 'normal');
+                  pdf.text(`  ${index + 1}. ${imageData.fileName || 'Image uploaded'}`, 30, yPosition);
+                  yPosition += 5;
+                  
+                  // Try to embed the actual image
+                  if (imageData.url && imageData.type && imageData.type.startsWith('image/')) {
+                    try {
+                      console.log(`Loading image from URL: ${imageData.url}`);
+                      const base64Image = await loadImageAsBase64(imageData.url);
+                      const imgWidth = 80;
+                      const imgHeight = 60;
+                      
+                      // Check if we need a new page
+                      if (yPosition + imgHeight > pageHeight - 20) {
+                        pdf.addPage();
+                        yPosition = 20;
+                      }
+                      
+                      pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
+                      yPosition += imgHeight + 5;
+                      console.log(`Successfully added image to PDF`);
+                    } catch (imgError) {
+                      console.error('Error adding image to PDF:', imgError);
+                      pdf.setFontSize(8);
+                      pdf.text(`     URL: ${imageData.url}`, 30, yPosition);
+                      pdf.setFontSize(10);
+                      yPosition += 5;
+                    }
+                  } else if (imageData.url) {
+                    pdf.setFontSize(8);
+                    pdf.text(`     URL: ${imageData.url}`, 30, yPosition);
+                    pdf.setFontSize(10);
+                    yPosition += 5;
+                  }
+                }
+              }
+              shouldSkipTextRendering = true;
+            }
+            // Check if the main field contains image data
+            else if (completedData[field.id]) {
+              const fileData = completedData[field.id];
+              console.log(`Processing main field data for ${field.id}:`, fileData);
+              
+              // Handle array of images
               if (Array.isArray(fileData)) {
                 pdf.setFontSize(10);
                 pdf.setFont('helvetica', 'bold');
@@ -236,6 +296,7 @@ export const generateStandardizedCPVPDF = async (
                     // Try to embed the actual image
                     if (image.url && image.type && image.type.startsWith('image/')) {
                       try {
+                        console.log(`Loading image from array URL: ${image.url}`);
                         const base64Image = await loadImageAsBase64(image.url);
                         const imgWidth = 80;
                         const imgHeight = 60;
@@ -248,8 +309,9 @@ export const generateStandardizedCPVPDF = async (
                         
                         pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
                         yPosition += imgHeight + 5;
+                        console.log(`Successfully added array image to PDF`);
                       } catch (imgError) {
-                        console.error('Error adding image to PDF:', imgError);
+                        console.error('Error adding array image to PDF:', imgError);
                         pdf.setFontSize(8);
                         pdf.text(`     URL: ${image.url}`, 30, yPosition);
                         pdf.setFontSize(10);
@@ -279,6 +341,7 @@ export const generateStandardizedCPVPDF = async (
                 // Try to embed the actual image
                 if (fileData.url && fileData.type && fileData.type.startsWith('image/')) {
                   try {
+                    console.log(`Loading single image from URL: ${fileData.url}`);
                     const base64Image = await loadImageAsBase64(fileData.url);
                     const imgWidth = 80;
                     const imgHeight = 60;
@@ -291,8 +354,9 @@ export const generateStandardizedCPVPDF = async (
                     
                     pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
                     yPosition += imgHeight + 5;
+                    console.log(`Successfully added single image to PDF`);
                   } catch (imgError) {
-                    console.error('Error adding image to PDF:', imgError);
+                    console.error('Error adding single image to PDF:', imgError);
                     pdf.setFontSize(8);
                     pdf.text(`  URL: ${fileData.url}`, 30, yPosition);
                     pdf.setFontSize(10);
@@ -306,59 +370,6 @@ export const generateStandardizedCPVPDF = async (
                 }
                 shouldSkipTextRendering = true;
               }
-              // Handle individual image fields stored separately (e.g., fieldId-0, fieldId-1)
-              else {
-                // Check for individual image uploads stored as separate keys
-                const imageKeys = Object.keys(completedData).filter(key => key.startsWith(`${field.id}-`)).sort();
-                if (imageKeys.length > 0) {
-                  pdf.setFontSize(10);
-                  pdf.setFont('helvetica', 'bold');
-                  pdf.text(`${field.title}:`, 25, yPosition);
-                  yPosition += 6;
-                  
-                  for (let index = 0; index < imageKeys.length; index++) {
-                    const key = imageKeys[index];
-                    const imageData = completedData[key];
-                    if (imageData && typeof imageData === 'object' && (imageData.url || imageData.fileName)) {
-                      pdf.setFont('helvetica', 'normal');
-                      pdf.text(`  ${index + 1}. ${imageData.fileName || 'Image uploaded'}`, 30, yPosition);
-                      yPosition += 5;
-                      
-                      // Try to embed the actual image
-                      if (imageData.url && imageData.type && imageData.type.startsWith('image/')) {
-                        try {
-                          const base64Image = await loadImageAsBase64(imageData.url);
-                          const imgWidth = 80;
-                          const imgHeight = 60;
-                          
-                          // Check if we need a new page
-                          if (yPosition + imgHeight > pageHeight - 20) {
-                            pdf.addPage();
-                            yPosition = 20;
-                          }
-                          
-                          pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
-                          yPosition += imgHeight + 5;
-                        } catch (imgError) {
-                          console.error('Error adding image to PDF:', imgError);
-                          pdf.setFontSize(8);
-                          pdf.text(`     URL: ${imageData.url}`, 30, yPosition);
-                          pdf.setFontSize(10);
-                          yPosition += 5;
-                        }
-                      } else if (imageData.url) {
-                        pdf.setFontSize(8);
-                        pdf.text(`     URL: ${imageData.url}`, 30, yPosition);
-                        pdf.setFontSize(10);
-                        yPosition += 5;
-                      }
-                    }
-                  }
-                  shouldSkipTextRendering = true;
-                }
-              }
-            } catch (error) {
-              console.error('Error processing file field:', error);
             }
           }
 
