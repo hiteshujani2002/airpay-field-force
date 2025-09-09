@@ -111,17 +111,25 @@ export const CPVAgentDashboard = () => {
           .in('user_id', leadAssignerIds);
 
         if (!leadAssignerError && leadAssignerData) {
+          console.log('Lead assigner data fetched:', leadAssignerData);
           leadAssignerMap = new Map(leadAssignerData.map(la => [la.user_id, la.username]));
+          console.log('Lead assigner map:', leadAssignerMap);
+        } else {
+          console.error('Error fetching lead assigner data:', leadAssignerError);
         }
       }
 
       // Add lead assigner names to leads data
-      const leadsWithAssignerNames = data?.map(lead => ({
-        ...lead,
-        lead_assigner_name: lead.assigned_lead_assigner_id ? 
+      const leadsWithAssignerNames = data?.map(lead => {
+        const assignerName = lead.assigned_lead_assigner_id ? 
           (leadAssignerMap.get(lead.assigned_lead_assigner_id) || 'Unknown') : 
-          'Unassigned'
-      })) || [];
+          'Unassigned';
+        console.log(`Lead ${lead.id}: assigned_lead_assigner_id=${lead.assigned_lead_assigner_id}, assignerName=${assignerName}`);
+        return {
+          ...lead,
+          lead_assigner_name: assignerName
+        };
+      }) || [];
 
       setLeads(leadsWithAssignerNames);
     } catch (error: any) {
