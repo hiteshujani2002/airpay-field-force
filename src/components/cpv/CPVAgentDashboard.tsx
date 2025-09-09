@@ -118,7 +118,9 @@ export const CPVAgentDashboard = () => {
       // Add lead assigner names to leads data
       const leadsWithAssignerNames = data?.map(lead => ({
         ...lead,
-        lead_assigner_name: lead.assigned_lead_assigner_id ? leadAssignerMap.get(lead.assigned_lead_assigner_id) || 'Unknown' : 'Unassigned'
+        lead_assigner_name: lead.assigned_lead_assigner_id ? 
+          (leadAssignerMap.get(lead.assigned_lead_assigner_id) || 'Unknown') : 
+          'Unassigned'
       })) || [];
 
       setLeads(leadsWithAssignerNames);
