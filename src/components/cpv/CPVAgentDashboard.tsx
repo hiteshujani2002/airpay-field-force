@@ -103,6 +103,9 @@ export const CPVAgentDashboard = () => {
       // Get lead assigner usernames for assigned leads
       const leadAssignerIds = [...new Set(data?.filter(lead => lead.assigned_lead_assigner_id).map(lead => lead.assigned_lead_assigner_id))].filter(Boolean);
       
+      console.log('Data with assigned_lead_assigner_id:', data?.map(d => ({ id: d.id, assigned_lead_assigner_id: d.assigned_lead_assigner_id })));
+      console.log('Collected leadAssignerIds:', leadAssignerIds);
+      
       let leadAssignerMap = new Map();
       if (leadAssignerIds.length > 0) {
         const { data: leadAssignerData, error: leadAssignerError } = await supabase
@@ -110,12 +113,11 @@ export const CPVAgentDashboard = () => {
           .select('user_id, username')
           .in('user_id', leadAssignerIds);
 
+        console.log('Lead assigner query result:', leadAssignerData, leadAssignerError);
+        
         if (!leadAssignerError && leadAssignerData) {
-          console.log('Lead assigner data fetched:', leadAssignerData);
           leadAssignerMap = new Map(leadAssignerData.map(la => [la.user_id, la.username]));
-          console.log('Lead assigner map:', leadAssignerMap);
-        } else {
-          console.error('Error fetching lead assigner data:', leadAssignerError);
+          console.log('Final leadAssignerMap:', leadAssignerMap);
         }
       }
 
