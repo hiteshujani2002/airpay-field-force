@@ -335,7 +335,7 @@ export const CPVFormCompletion = ({
         );
 
       case 'image':
-        const imageCount = field.imageCount || 1;
+        const imageCount = field.numberOfClicks || field.imageCount || 1;
         const fieldImages = Array.isArray(formData[field.id]) ? formData[field.id] : [];
         
         return (
@@ -359,9 +359,14 @@ export const CPVFormCompletion = ({
                         if (file) {
                           handleImageUpload(`${field.id}-${index}`, file).then(() => {
                             // Update the array for this field
-                            const updatedImages = [...fieldImages];
-                            updatedImages[index] = formData[`${field.id}-${index}`];
-                            handleFieldChange(field.id, updatedImages);
+                            const currentImages = Array.isArray(formData[field.id]) ? [...formData[field.id]] : [];
+                            // Ensure array has the right length
+                            while (currentImages.length <= index) {
+                              currentImages.push(null);
+                            }
+                            // Add the uploaded image data to the correct index
+                            currentImages[index] = formData[`${field.id}-${index}`];
+                            handleFieldChange(field.id, currentImages);
                           });
                         }
                       }}

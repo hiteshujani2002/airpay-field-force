@@ -1,6 +1,23 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 
+// Helper function to load image from URL and convert to base64
+const loadImageAsBase64 = async (url: string): Promise<string> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error loading image:', error);
+    throw error;
+  }
+};
+
 export interface CPVFormData {
   sections: any; // Allow Json type from Supabase
   form_preview_data?: any;
@@ -197,22 +214,148 @@ export const generateStandardizedCPVPDF = async (
           
           console.log(`PDF Field Processing - Final value for ${field.id}:`, value);
 
-          // Handle file/image fields - try to embed images (synchronously for now)
+          // Handle file/image fields - display uploaded images with actual images in PDF
           if ((field.type === 'image' || field.type === 'file') && completedData && completedData[field.id]) {
             try {
               const fileData = completedData[field.id];
-              if (typeof fileData === 'object' && (fileData.url || fileData.fileName)) {
+              
+              // Handle array of images (multiple image fields)
+              if (Array.isArray(fileData)) {
                 pdf.setFontSize(10);
-                pdf.setFont('helvetica', 'normal');
-                pdf.text(`${field.title}: ${fileData.fileName || 'File uploaded'}`, 25, yPosition);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(`${field.title}:`, 25, yPosition);
+                yPosition += 6;
                 
-                if (fileData.url) {
-                  pdf.text(`URL: ${fileData.url}`, 25, yPosition + 5);
-                  yPosition += 10;
-                } else {
-                  yPosition += 6;
+                for (let index = 0; index < fileData.length; index++) {
+                  const image = fileData[index];
+                  if (image && typeof image === 'object' && (image.url || image.fileName)) {
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.text(`  ${index + 1}. ${image.fileName || 'Image uploaded'}`, 30, yPosition);
+                    yPosition += 5;
+                    
+                    // Try to embed the actual image
+                    if (image.url && image.type && image.type.startsWith('image/')) {
+                      try {
+                        const base64Image = await loadImageAsBase64(image.url);
+                        const imgWidth = 80;
+                        const imgHeight = 60;
+                        
+                        // Check if we need a new page
+                        if (yPosition + imgHeight > pageHeight - 20) {
+                          pdf.addPage();
+                          yPosition = 20;
+                        }
+                        
+                        pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
+                        yPosition += imgHeight + 5;
+                      } catch (imgError) {
+                        console.error('Error adding image to PDF:', imgError);
+                        pdf.setFontSize(8);
+                        pdf.text(`     URL: ${image.url}`, 30, yPosition);
+                        pdf.setFontSize(10);
+                        yPosition += 5;
+                      }
+                    }
+                  } else if (image) {
+                    // Handle simple string filenames
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.text(`  ${index + 1}. ${String(image)}`, 30, yPosition);
+                    yPosition += 5;
+                  }
                 }
                 shouldSkipTextRendering = true;
+              }
+              // Handle single image/file
+              else if (typeof fileData === 'object' && (fileData.url || fileData.fileName)) {
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(`${field.title}:`, 25, yPosition);
+                yPosition += 6;
+                
+                pdf.setFont('helvetica', 'normal');
+                pdf.text(`  ${fileData.fileName || 'File uploaded'}`, 30, yPosition);
+                yPosition += 5;
+                
+                // Try to embed the actual image
+                if (fileData.url && fileData.type && fileData.type.startsWith('image/')) {
+                  try {
+                    const base64Image = await loadImageAsBase64(fileData.url);
+                    const imgWidth = 80;
+                    const imgHeight = 60;
+                    
+                    // Check if we need a new page
+                    if (yPosition + imgHeight > pageHeight - 20) {
+                      pdf.addPage();
+                      yPosition = 20;
+                    }
+                    
+                    pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
+                    yPosition += imgHeight + 5;
+                  } catch (imgError) {
+                    console.error('Error adding image to PDF:', imgError);
+                    pdf.setFontSize(8);
+                    pdf.text(`  URL: ${fileData.url}`, 30, yPosition);
+                    pdf.setFontSize(10);
+                    yPosition += 5;
+                  }
+                } else if (fileData.url) {
+                  pdf.setFontSize(8);
+                  pdf.text(`  URL: ${fileData.url}`, 30, yPosition);
+                  pdf.setFontSize(10);
+                  yPosition += 5;
+                }
+                shouldSkipTextRendering = true;
+              }
+              // Handle individual image fields stored separately (e.g., fieldId-0, fieldId-1)
+              else {
+                // Check for individual image uploads stored as separate keys
+                const imageKeys = Object.keys(completedData).filter(key => key.startsWith(`${field.id}-`)).sort();
+                if (imageKeys.length > 0) {
+                  pdf.setFontSize(10);
+                  pdf.setFont('helvetica', 'bold');
+                  pdf.text(`${field.title}:`, 25, yPosition);
+                  yPosition += 6;
+                  
+                  for (let index = 0; index < imageKeys.length; index++) {
+                    const key = imageKeys[index];
+                    const imageData = completedData[key];
+                    if (imageData && typeof imageData === 'object' && (imageData.url || imageData.fileName)) {
+                      pdf.setFont('helvetica', 'normal');
+                      pdf.text(`  ${index + 1}. ${imageData.fileName || 'Image uploaded'}`, 30, yPosition);
+                      yPosition += 5;
+                      
+                      // Try to embed the actual image
+                      if (imageData.url && imageData.type && imageData.type.startsWith('image/')) {
+                        try {
+                          const base64Image = await loadImageAsBase64(imageData.url);
+                          const imgWidth = 80;
+                          const imgHeight = 60;
+                          
+                          // Check if we need a new page
+                          if (yPosition + imgHeight > pageHeight - 20) {
+                            pdf.addPage();
+                            yPosition = 20;
+                          }
+                          
+                          pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
+                          yPosition += imgHeight + 5;
+                        } catch (imgError) {
+                          console.error('Error adding image to PDF:', imgError);
+                          pdf.setFontSize(8);
+                          pdf.text(`     URL: ${imageData.url}`, 30, yPosition);
+                          pdf.setFontSize(10);
+                          yPosition += 5;
+                        }
+                      } else if (imageData.url) {
+                        pdf.setFontSize(8);
+                        pdf.text(`     URL: ${imageData.url}`, 30, yPosition);
+                        pdf.setFontSize(10);
+                        yPosition += 5;
+                      }
+                    }
+                  }
+                  shouldSkipTextRendering = true;
+                }
               }
             } catch (error) {
               console.error('Error processing file field:', error);
