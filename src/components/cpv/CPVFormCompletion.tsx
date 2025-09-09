@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { GeoLocationStatus } from './GeoLocationStatus';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -112,6 +113,26 @@ export const CPVFormCompletion = ({
 
   const handleImageUpload = async (fieldId: string, file: File) => {
     try {
+      // Capture geo location when uploading images
+      let geoLocationData = null;
+      try {
+        console.log('Capturing geo location for image upload...');
+        const { getCurrentLocation } = await import('@/lib/geoLocationUtils');
+        geoLocationData = await getCurrentLocation();
+        console.log('Geo location captured:', geoLocationData);
+        toast({
+          title: 'Location Captured',
+          description: `Location: ${geoLocationData.latitude.toFixed(6)}, ${geoLocationData.longitude.toFixed(6)}`,
+        });
+      } catch (geoError) {
+        console.warn('Failed to capture geo location:', geoError);
+        toast({
+          title: 'Location Not Available',
+          description: 'Proceeding without location data',
+          variant: 'destructive',
+        });
+      }
+
       // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${fieldId}_${lead.id}_${Date.now()}.${fileExt}`;
@@ -139,18 +160,22 @@ export const CPVFormCompletion = ({
         .from('cpv-pdfs')
         .getPublicUrl(filePath);
 
-      // Store both file info and URL
+      // Store file info, URL, and geo location data
       handleFieldChange(fieldId, {
         fileName: file.name,
         filePath: filePath,
         url: urlData.publicUrl,
         type: file.type,
-        size: file.size
+        size: file.size,
+        geoLocation: geoLocationData, // Add geo location data
+        uploadTimestamp: new Date().toISOString()
       });
 
       toast({
         title: 'Upload successful',
-        description: 'Image uploaded successfully',
+        description: geoLocationData 
+          ? `Image uploaded with location: ${geoLocationData.latitude.toFixed(4)}, ${geoLocationData.longitude.toFixed(4)}`
+          : 'Image uploaded successfully',
       });
       
       return Promise.resolve();
@@ -372,16 +397,26 @@ export const CPVFormCompletion = ({
                       }}
                       className="hidden"
                     />
-                    <Label htmlFor={`${field.id}-${index}`} className="cursor-pointer">
-                      <span className="text-sm text-muted-foreground">
-                        {hasImage && typeof hasImage === 'object' && hasImage.fileName ? 
-                          `Uploaded: ${hasImage.fileName}` : 
-                          hasImage ? 
-                            `Uploaded: ${hasImage}` : 
-                            `Click to upload ${field.title} ${imageCount > 1 ? `(${index + 1}/${imageCount})` : ''}`
-                        }
-                      </span>
-                    </Label>
+                     <Label htmlFor={`${field.id}-${index}`} className="cursor-pointer">
+                       <div className="text-sm text-muted-foreground">
+                         {hasImage && typeof hasImage === 'object' && hasImage.fileName ? (
+                           <div className="space-y-1">
+                             <div>{`Uploaded: ${hasImage.fileName}`}</div>
+                             {hasImage.geoLocation && (
+                               <div className="text-xs text-green-600">
+                                 📍 {hasImage.geoLocation.latitude.toFixed(6)}, {hasImage.geoLocation.longitude.toFixed(6)}
+                                 {hasImage.geoLocation.address && (
+                                   <div className="mt-1">{hasImage.geoLocation.address}</div>
+                                 )}
+                               </div>
+                             )}
+                           </div>
+                         ) : hasImage ? 
+                           `Uploaded: ${hasImage}` : 
+                           `Click to upload ${field.title} ${imageCount > 1 ? `(${index + 1}/${imageCount})` : ''}`
+                         }
+                       </div>
+                     </Label>
                   </div>
                 );
               })}
@@ -736,6 +771,9 @@ export const CPVFormCompletion = ({
               ))}
             </div>
           </div>
+
+          {/* Geo Location Status */}
+          <GeoLocationStatus />
 
           {/* Current Section Form */}
           <Card>
