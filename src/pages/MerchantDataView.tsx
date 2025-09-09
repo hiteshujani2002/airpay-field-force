@@ -524,7 +524,11 @@ const MerchantDataView = () => {
                             <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
                             <TableCell>{new Date(merchant.uploaded_on).toLocaleDateString()}</TableCell>
                             <TableCell>
-                              {merchant.assigned_on ? new Date(merchant.assigned_on).toLocaleDateString() : 'Not Assigned'}
+                              {merchant.assigned_cpv_agent_id ? (
+                                merchant.cpv_agent_assigned_on 
+                                  ? new Date(merchant.cpv_agent_assigned_on).toLocaleDateString() 
+                                  : 'Assigned'
+                              ) : 'Not Assigned'}
                             </TableCell>
                             <TableCell>
                               {merchant.verification_status && ['completed', 'verified'].includes(merchant.verification_status.toLowerCase()) ? (
