@@ -218,20 +218,53 @@ export const generateStandardizedCPVPDF = async (
           // Handle file/image fields - display uploaded images with actual images in PDF
           if ((field.type === 'image' || field.type === 'file') && completedData) {
             console.log(`Processing image field: ${field.id}, type: ${field.type}`);
-            console.log(`Field data in completedData:`, completedData[field.id]);
+            console.log(`Available keys in completedData:`, Object.keys(completedData));
             
-            // First check for individual image keys (fieldId-0, fieldId-1, etc.)
-            const imageKeys = Object.keys(completedData).filter(key => key.startsWith(`${field.id}-`)).sort();
-            console.log(`Found individual image keys for ${field.id}:`, imageKeys);
+            // Strategy 1: Look for exact pattern matches (fieldId-0, fieldId-1, etc.)
+            const exactImageKeys = Object.keys(completedData).filter(key => 
+              key.startsWith(`${field.id}-`) && key.match(new RegExp(`^${field.id}-\\d+$`))
+            ).sort();
+            console.log(`Exact image keys for ${field.id}:`, exactImageKeys);
             
-            if (imageKeys.length > 0) {
+            // Strategy 2: Look for timestamp-based keys (like 1756466562039-0)
+            const timestampImageKeys = Object.keys(completedData).filter(key => 
+              key.includes('-') && completedData[key] && 
+              typeof completedData[key] === 'object' && 
+              completedData[key].url && 
+              completedData[key].fileName &&
+              (key.includes(field.id) || 
+               (field.title && (
+                 key.toLowerCase().includes(field.title.toLowerCase().replace(/\s+/g, '')) ||
+                 field.title.toLowerCase().includes('photo') && key.includes('photo') ||
+                 field.title.toLowerCase().includes('business') && key.includes('business') ||
+                 field.title.toLowerCase().includes('person') && key.includes('person') ||
+                 field.title.toLowerCase().includes('office') && key.includes('office')
+               )))
+            ).sort();
+            console.log(`Timestamp image keys for ${field.id}:`, timestampImageKeys);
+            
+            // Strategy 3: Look for any keys that contain image data and might be related
+            const allImageKeys = Object.keys(completedData).filter(key => {
+              const data = completedData[key];
+              return data && typeof data === 'object' && data.url && data.fileName && data.type && data.type.startsWith('image/');
+            });
+            console.log(`All available image keys:`, allImageKeys);
+            
+            // Choose the best strategy
+            let imageKeysToUse = exactImageKeys.length > 0 ? exactImageKeys : 
+                               timestampImageKeys.length > 0 ? timestampImageKeys : 
+                               allImageKeys.filter(key => key.includes('-')); // Use any indexed images as fallback
+            
+            console.log(`Using image keys for ${field.id}:`, imageKeysToUse);
+            
+            if (imageKeysToUse.length > 0) {
               pdf.setFontSize(10);
               pdf.setFont('helvetica', 'bold');
               pdf.text(`${field.title}:`, 25, yPosition);
               yPosition += 6;
               
-              for (let index = 0; index < imageKeys.length; index++) {
-                const key = imageKeys[index];
+              for (let index = 0; index < imageKeysToUse.length; index++) {
+                const key = imageKeysToUse[index];
                 const imageData = completedData[key];
                 console.log(`Processing image key ${key}:`, imageData);
                 

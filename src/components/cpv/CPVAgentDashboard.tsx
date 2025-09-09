@@ -194,10 +194,60 @@ export const CPVAgentDashboard = () => {
 
   const generateAndDownloadPDF = async (lead: CPVLead) => {
     try {
+      // First, check if there's already a stored PDF URL (consistent with other roles)
+      if (lead.verification_pdf_url) {
+        // Download directly from the stored URL
+        const response = await fetch(lead.verification_pdf_url);
+        if (response.ok) {
+          const blob = await response.blob();
+          const { downloadPDF } = await import('@/lib/pdfGenerator');
+          downloadPDF(blob, `CPV_Report_${lead.merchant_name}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+          
+          toast({
+            title: 'Success',
+            description: 'CPV report downloaded successfully',
+          });
+          return;
+        }
+      }
+
+      // Fallback: Generate PDF from database data if no stored URL or fetch failed
       toast({
         title: 'Generating PDF',
         description: 'Creating comprehensive PDF from completed form data...',
       });
+
+      // Fetch the CPV form structure and completed form data from database
+      const [formResult, merchantResult] = await Promise.all([
+        supabase
+          .from('cpv_forms')
+          .select('name, initiative, sections, form_preview_data')
+          .eq('id', lead.cpv_form_id)
+          .single(),
+        supabase
+          .from('cpv_merchant_status')
+          .select('completed_form_data, verification_pdf_url')
+          .eq('id', lead.id)
+          .single()
+      ]);
+
+      if (formResult.error || !formResult.data) {
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch form data',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (merchantResult.error || !merchantResult.data) {
+        toast({
+          title: 'Error', 
+          description: 'Failed to fetch completed form data',
+          variant: 'destructive',
+        });
+        return;
+      }
 
       // Import the standardized PDF generator
       const { generateStandardizedCPVPDF, downloadPDF } = await import('@/lib/pdfGenerator');
@@ -208,24 +258,32 @@ export const CPVAgentDashboard = () => {
         merchant_name: lead.merchant_name,
         merchant_phone: lead.merchant_phone,
         merchant_address: lead.merchant_address,
-        city: lead.city,
-        state: lead.state,
-        pincode: lead.pincode,
+        city: lead.city || '',
+        state: lead.state || '',
+        pincode: lead.pincode || '',
         verification_status: lead.verification_status,
         cpv_agent_name: lead.cpv_agent,
         cpv_agent_assigned_on: lead.cpv_agent_assigned_on
       };
 
-      // Prepare form data
+      // Prepare form data using actual database data
       const formDataForPDF = {
-        sections: lead.sections || [],
-        form_preview_data: lead.form_preview_data,
-        name: lead.form_name || 'CPV Form',
-        initiative: lead.initiative || 'Standard Initiative'
+        sections: formResult.data.sections || [],
+        form_preview_data: formResult.data.form_preview_data,
+        name: formResult.data.name || 'CPV Form',
+        initiative: formResult.data.initiative || 'Standard Initiative'
       };
 
-      // Use the standardized PDF generator
-      const pdfBlob = await generateStandardizedCPVPDF(merchantInfo, formDataForPDF);
+      // Get completed form data
+      const completedFormData = merchantResult.data.completed_form_data as any;
+      
+      // Convert visit_date back to Date object if it's a string  
+      if (completedFormData && typeof completedFormData === 'object' && completedFormData.visit_date && typeof completedFormData.visit_date === 'string') {
+        completedFormData.visit_date = new Date(completedFormData.visit_date);
+      }
+
+      // Use the standardized PDF generator with completed data
+      const pdfBlob = await generateStandardizedCPVPDF(merchantInfo, formDataForPDF, completedFormData);
       
       // Generate filename
       const filename = `CPV_Report_${lead.merchant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;

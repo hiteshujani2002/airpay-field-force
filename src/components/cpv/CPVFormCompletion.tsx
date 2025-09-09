@@ -638,7 +638,11 @@ export const CPVFormCompletion = ({
         cpv_agent_name: lead.cpv_agent || formData.agent_name
       };
       
-      console.log('Completed form data being stored:', completedFormData); // Debug log
+      console.log('=== CPV FORM COMPLETION DEBUG ===');
+      console.log('All form fields collected:', allFormFields);
+      console.log('Form data override:', formData);
+      console.log('Final completed form data being stored:', JSON.stringify(completedFormData, null, 2));
+      console.log('Data will be stored in cpv_merchant_status.completed_form_data for merchant:', lead.id);
       
       // Generate standardized PDF
       const pdfBlob = await generatePDF();
