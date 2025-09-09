@@ -485,47 +485,100 @@ const LeadsManagement = () => {
 
   const generateAndDownloadPDF = async (merchant: MerchantData) => {
     try {
+      // First, check if there's already a stored PDF URL (same as Client Admin)
+      if (merchant.verification_pdf_url) {
+        // Download directly from the stored URL
+        const response = await fetch(merchant.verification_pdf_url);
+        if (response.ok) {
+          const blob = await response.blob();
+          const { downloadPDF } = await import('@/lib/pdfGenerator');
+          downloadPDF(blob, `CPV_Report_${merchant.merchant_name}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+          
+          toast({
+            title: 'Success',
+            description: 'CPV report downloaded successfully',
+          });
+          return;
+        }
+      }
+
+      // Fallback: Generate PDF if no stored URL or fetch failed
       toast({
         title: 'Generating PDF',
         description: 'Please wait while we generate your CPV report...',
       })
 
-      // Get the CPV form data and completed form data
-      const { data: formData, error: formError } = await supabase
-        .from('cpv_forms')
-        .select('name, initiative, sections, form_preview_data')
-        .eq('id', formId)
-        .single()
+      // Fetch the CPV form structure and completed form data
+      const [formResult, merchantResult] = await Promise.all([
+        supabase
+          .from('cpv_forms')
+          .select('name, initiative, sections, form_preview_data')
+          .eq('id', formId)
+          .single(),
+        supabase
+          .from('cpv_merchant_status')
+          .select('completed_form_data, verification_pdf_url')
+          .eq('id', merchant.id)
+          .single()
+      ]);
 
-      if (formError) throw formError
+      if (formResult.error || !formResult.data) {
+        toast({
+          title: 'Error',
+          description: 'Unable to fetch form structure',
+          variant: 'destructive',
+        })
+        return
+      }
 
+      const formStructure = formResult.data;
+      const merchantData = merchantResult.data;
+
+      // Ensure we have completed form data - this should exist for verified merchants
+      if (!merchantData?.completed_form_data) {
+        toast({
+          title: 'Error',
+          description: 'No completed form data found. Please complete the CPV verification first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const completedFormData = merchantData.completed_form_data as any;
+      
       // Import the standardized PDF generator
       const { generateStandardizedCPVPDF, downloadPDF } = await import('@/lib/pdfGenerator')
       
-      // Prepare merchant info
-      const merchantInfo = {
-        id: merchant.id,
-        merchant_name: merchant.merchant_name,
-        merchant_phone: merchant.merchant_phone,
-        merchant_address: merchant.merchant_address,
-        city: merchant.city,
-        state: merchant.state,
-        pincode: merchant.pincode,
-        verification_status: merchant.verification_status,
-        cpv_agent_name: merchant.cpv_agent_name,
-        cpv_agent_assigned_on: merchant.cpv_agent_assigned_on,
-        verification_file_url: merchant.verification_file_url
+      // Convert visit_date back to Date object if it's a string  
+      if (completedFormData && typeof completedFormData === 'object' && completedFormData.visit_date && typeof completedFormData.visit_date === 'string') {
+        completedFormData.visit_date = new Date(completedFormData.visit_date);
       }
 
-      // Use the standardized PDF generator
-      const pdfBlob = await generateStandardizedCPVPDF(merchantInfo, formData)
-      
-      // Generate filename
-      const filename = `CPV_Report_${merchant.merchant_name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
-      
-      // Download the PDF
-      downloadPDF(pdfBlob, filename)
+      // Generate PDF with the actual completed data
+      const pdfBlob = await generateStandardizedCPVPDF(
+        {
+          id: merchant.id,
+          merchant_name: merchant.merchant_name,
+          merchant_phone: merchant.merchant_phone,
+          merchant_address: merchant.merchant_address,
+          city: merchant.city,
+          state: merchant.state,
+          pincode: merchant.pincode,
+          verification_status: merchant.verification_status,
+          cpv_agent_name: merchant.cpv_agent_name || 'Not Assigned',
+          cpv_agent_assigned_on: merchant.cpv_agent_assigned_on || undefined
+        },
+        {
+          name: formStructure.name || 'CPV Form',
+          initiative: formStructure.initiative || 'Not specified',
+          sections: formStructure.sections || [],
+          form_preview_data: formStructure.form_preview_data || {}
+        },
+        completedFormData
+      )
 
+      downloadPDF(pdfBlob, `CPV_Report_${merchant.merchant_name}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`)
+      
       toast({
         title: 'Success',
         description: 'CPV report downloaded successfully',
