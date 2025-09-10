@@ -1,4 +1,4 @@
-import * as React from "react";
+import { createContext, useContext, useState, useEffect, FC, ReactNode } from "react";
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/integrations/supabase/client'
 
@@ -13,16 +13,16 @@ interface AuthContextType {
   signOut: () => Promise<void>
 }
 
-const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  console.log('AuthProvider rendering, React:', !!React, 'useState:', !!React.useState)
+export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
+  console.log('AuthProvider rendering')
   
-  const [user, setUser] = React.useState<User | null>(null)
-  const [userRole, setUserRole] = React.useState<UserRole | null>(null)
-  const [loading, setLoading] = React.useState(true)
+  const [user, setUser] = useState<User | null>(null)
+  const [userRole, setUserRole] = useState<UserRole | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Get initial session and stored role
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
@@ -158,7 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 }
 
 export const useAuth = () => {
-  const context = React.useContext(AuthContext)
+  const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
