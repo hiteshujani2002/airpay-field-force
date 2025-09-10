@@ -289,6 +289,39 @@ export const generateStandardizedCPVPDF = async (
                       
                       pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
                       yPosition += imgHeight + 5;
+                      
+                      // Add geo location data if available
+                      if (imageData.geoLocation) {
+                        pdf.setFontSize(8);
+                        pdf.setFont('helvetica', 'italic');
+                        const geoData = imageData.geoLocation;
+                        
+                        pdf.text(`📍 Location: ${geoData.latitude?.toFixed(6)}, ${geoData.longitude?.toFixed(6)}`, 35, yPosition);
+                        yPosition += 4;
+                        
+                        if (geoData.address) {
+                          const addressLines = pdf.splitTextToSize(`Address: ${geoData.address}`, 140);
+                          addressLines.forEach((line: string) => {
+                            pdf.text(line, 35, yPosition);
+                            yPosition += 4;
+                          });
+                        }
+                        
+                        if (geoData.pincode) {
+                          pdf.text(`Pincode: ${geoData.pincode}`, 35, yPosition);
+                          yPosition += 4;
+                        }
+                        
+                        if (geoData.timestamp) {
+                          pdf.text(`Captured: ${format(new Date(geoData.timestamp), 'MMM dd, yyyy HH:mm')}`, 35, yPosition);
+                          yPosition += 4;
+                        }
+                        
+                        yPosition += 3; // Extra spacing after geo data
+                        pdf.setFontSize(10);
+                        pdf.setFont('helvetica', 'normal');
+                      }
+                      
                       console.log(`Successfully added image to PDF`);
                     } catch (imgError) {
                       console.error('Error adding image to PDF:', imgError);
@@ -342,6 +375,39 @@ export const generateStandardizedCPVPDF = async (
                         
                         pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
                         yPosition += imgHeight + 5;
+                        
+                        // Add geo location data if available
+                        if (image.geoLocation) {
+                          pdf.setFontSize(8);
+                          pdf.setFont('helvetica', 'italic');
+                          const geoData = image.geoLocation;
+                          
+                          pdf.text(`📍 Location: ${geoData.latitude?.toFixed(6)}, ${geoData.longitude?.toFixed(6)}`, 35, yPosition);
+                          yPosition += 4;
+                          
+                          if (geoData.address) {
+                            const addressLines = pdf.splitTextToSize(`Address: ${geoData.address}`, 140);
+                            addressLines.forEach((line: string) => {
+                              pdf.text(line, 35, yPosition);
+                              yPosition += 4;
+                            });
+                          }
+                          
+                          if (geoData.pincode) {
+                            pdf.text(`Pincode: ${geoData.pincode}`, 35, yPosition);
+                            yPosition += 4;
+                          }
+                          
+                          if (geoData.timestamp) {
+                            pdf.text(`Captured: ${format(new Date(geoData.timestamp), 'MMM dd, yyyy HH:mm')}`, 35, yPosition);
+                            yPosition += 4;
+                          }
+                          
+                          yPosition += 3; // Extra spacing after geo data
+                          pdf.setFontSize(10);
+                          pdf.setFont('helvetica', 'normal');
+                        }
+                        
                         console.log(`Successfully added array image to PDF`);
                       } catch (imgError) {
                         console.error('Error adding array image to PDF:', imgError);
@@ -387,6 +453,39 @@ export const generateStandardizedCPVPDF = async (
                     
                     pdf.addImage(base64Image, 'JPEG', 35, yPosition, imgWidth, imgHeight);
                     yPosition += imgHeight + 5;
+                    
+                    // Add geo location data if available
+                    if (fileData.geoLocation) {
+                      pdf.setFontSize(8);
+                      pdf.setFont('helvetica', 'italic');
+                      const geoData = fileData.geoLocation;
+                      
+                      pdf.text(`📍 Location: ${geoData.latitude?.toFixed(6)}, ${geoData.longitude?.toFixed(6)}`, 35, yPosition);
+                      yPosition += 4;
+                      
+                      if (geoData.address) {
+                        const addressLines = pdf.splitTextToSize(`Address: ${geoData.address}`, 140);
+                        addressLines.forEach((line: string) => {
+                          pdf.text(line, 35, yPosition);
+                          yPosition += 4;
+                        });
+                      }
+                      
+                      if (geoData.pincode) {
+                        pdf.text(`Pincode: ${geoData.pincode}`, 35, yPosition);
+                        yPosition += 4;
+                      }
+                      
+                      if (geoData.timestamp) {
+                        pdf.text(`Captured: ${format(new Date(geoData.timestamp), 'MMM dd, yyyy HH:mm')}`, 35, yPosition);
+                        yPosition += 4;
+                      }
+                      
+                      yPosition += 3; // Extra spacing after geo data
+                      pdf.setFontSize(10);
+                      pdf.setFont('helvetica', 'normal');
+                    }
+                    
                     console.log(`Successfully added single image to PDF`);
                   } catch (imgError) {
                     console.error('Error adding single image to PDF:', imgError);
