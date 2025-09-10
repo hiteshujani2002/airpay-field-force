@@ -1,19 +1,54 @@
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 
-// Helper function to load image from URL and convert to base64
+// Helper function to load image from URL, compress it, and convert to base64
 const loadImageAsBase64 = async (url: string): Promise<string> => {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
+    
+    // Create an image element to get dimensions and compress
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    
     return new Promise((resolve, reject) => {
+      img.onload = () => {
+        // Set maximum dimensions for PDF images
+        const maxWidth = 800;
+        const maxHeight = 600;
+        
+        let { width, height } = img;
+        
+        // Calculate new dimensions while maintaining aspect ratio
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = width * ratio;
+          height = height * ratio;
+        }
+        
+        // Set canvas size and draw compressed image
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to base64 with compression (0.7 quality for JPEG)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(compressedBase64);
+      };
+      
+      img.onerror = reject;
+      
+      // Load image from blob
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload = () => {
+        img.src = reader.result as string;
+      };
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.error('Error loading image:', error);
+    console.error('Error loading and compressing image:', error);
     throw error;
   }
 };
