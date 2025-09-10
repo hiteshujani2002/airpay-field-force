@@ -31,6 +31,7 @@ interface CPVLead {
   form_preview_data?: any;
   form_name?: string;
   initiative?: string;
+  form_status?: string;
   lead_assigner_name?: string;
   assigned_lead_assigner_id?: string;
   cpv_forms: {
@@ -80,10 +81,10 @@ export const CPVAgentDashboard = () => {
       // Get unique form IDs
       const formIds = [...new Set(merchantData.map(m => m.cpv_form_id))];
 
-      // Get the corresponding CPV forms
+      // Get the corresponding CPV forms with status
       const { data: formsData, error: formsError } = await supabase
         .from('cpv_forms')
-        .select('id, name, initiative, sections')
+        .select('id, name, initiative, sections, current_status')
         .in('id', formIds);
 
       if (formsError) throw formsError;
@@ -91,13 +92,14 @@ export const CPVAgentDashboard = () => {
       // Create a map of forms for easy lookup
       const formsMap = new Map(formsData?.map(form => [form.id, form]) || []);
 
-      // Combine merchant data with form data
+      // Combine merchant data with form data and check form status
       const data = merchantData.map(merchant => ({
         ...merchant,
         cpv_forms: formsMap.get(merchant.cpv_form_id) || null,
         sections: formsMap.get(merchant.cpv_form_id)?.sections,
         form_name: formsMap.get(merchant.cpv_form_id)?.name,
-        initiative: formsMap.get(merchant.cpv_form_id)?.initiative
+        initiative: formsMap.get(merchant.cpv_form_id)?.initiative,
+        form_status: formsMap.get(merchant.cpv_form_id)?.current_status
       }));
 
       // Get lead assigner usernames for assigned leads
@@ -356,16 +358,18 @@ export const CPVAgentDashboard = () => {
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
-                {showActions && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleCompleteCPV(lead)}
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    Complete CPV
-                  </Button>
-                )}
+                 {showActions && (
+                   <Button
+                     variant="default"
+                     size="sm"
+                     onClick={() => handleCompleteCPV(lead)}
+                     disabled={lead.form_status?.toLowerCase() === 'inactive'}
+                     title={lead.form_status?.toLowerCase() === 'inactive' ? 'Cannot complete CPV for inactive forms' : ''}
+                   >
+                     <FileText className="h-4 w-4 mr-1" />
+                     Complete CPV
+                   </Button>
+                 )}
               </div>
             </TableCell>
             {showPDF && (

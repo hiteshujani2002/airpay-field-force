@@ -37,6 +37,7 @@ interface CPVForm {
   id: string;
   name: string;
   initiative: string;
+  current_status?: string;
 }
 
 const MerchantDataView = () => {
@@ -64,10 +65,10 @@ const MerchantDataView = () => {
     
     setLoading(true)
     try {
-      // Load CPV form details
+      // Load CPV form details including status
       const { data: formData, error: formError } = await supabase
         .from('cpv_forms')
-        .select('id, name, initiative')
+        .select('id, name, initiative, current_status')
         .eq('id', formId)
         .single()
 
@@ -466,6 +467,8 @@ const MerchantDataView = () => {
                   variant="outline"
                   onClick={() => setShowReassignDialog(true)}
                   className="flex items-center gap-2"
+                  disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                  title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot reassign data for inactive forms' : ''}
                 >
                   <Users className="h-4 w-4" />
                   Reassign Lead Assigner
@@ -473,6 +476,8 @@ const MerchantDataView = () => {
                 <Button
                   onClick={() => setShowUploadDialog(true)}
                   className="flex items-center gap-2"
+                  disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                  title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot upload data to inactive forms' : ''}
                 >
                   <Upload className="h-4 w-4" />
                   Upload Data

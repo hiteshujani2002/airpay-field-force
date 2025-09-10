@@ -39,6 +39,7 @@ interface CPVForm {
   id: string;
   name: string;
   initiative: string;
+  current_status?: string;
 }
 
 interface CPVAgent {
@@ -93,10 +94,10 @@ const LeadsManagement = () => {
 
     setLoading(true)
     try {
-      // Load CPV form details
+      // Load CPV form details including status
       const { data: formData, error: formError } = await supabase
         .from('cpv_forms')
-        .select('id, name, initiative')
+        .select('id, name, initiative, current_status')
         .eq('id', formId)
         .single()
 
@@ -739,7 +740,11 @@ const LeadsManagement = () => {
 
               <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
                 <DialogTrigger asChild>
-                  <Button className="flex items-center gap-2">
+                  <Button 
+                    className="flex items-center gap-2"
+                    disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                    title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot assign leads for inactive forms' : ''}
+                  >
                     <Users className="h-4 w-4" />
                     Assign
                   </Button>
@@ -798,7 +803,12 @@ const LeadsManagement = () => {
 
               <Dialog open={bulkReassignOpen} onOpenChange={setBulkReassignOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                    disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                    title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot reassign leads for inactive forms' : ''}
+                  >
                     <Upload className="h-4 w-4" />
                     Reassign
                   </Button>
@@ -908,15 +918,18 @@ const LeadsManagement = () => {
                                      if (open) setSelectedMerchant(merchant)
                                      else setSelectedMerchant(null)
                                    }}>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="text-xs"
-                                >
-                                  Not Assigned
-                                </Button>
-                              </DialogTrigger>
+                               <DialogTrigger asChild>
+                                 <Button 
+                                   variant="outline" 
+                                   size="sm"
+                                   className="text-xs"
+                                   disabled={cpvForm?.current_status?.toLowerCase() === 'inactive' && merchant.verification_status === 'pending'}
+                                   title={cpvForm?.current_status?.toLowerCase() === 'inactive' && merchant.verification_status === 'pending' 
+                                     ? 'Cannot assign leads for inactive forms' : ''}
+                                 >
+                                   Not Assigned
+                                 </Button>
+                               </DialogTrigger>
                               <DialogContent>
                                 <DialogHeader>
                                   <DialogTitle>Assign Merchant</DialogTitle>

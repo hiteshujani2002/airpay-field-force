@@ -376,7 +376,7 @@ const LeadAssignerDashboard = () => {
                            variant="ghost"
                            size="sm"
                            onClick={() => handleMoreDetails(form)}
-                           className="h-8 w-8 p-0"
+                           title={form.current_status?.toLowerCase() === 'inactive' ? 'Cannot manage inactive forms' : ''}
                          >
                            <MoreHorizontal className="h-4 w-4" />
                          </Button>
