@@ -43,7 +43,7 @@ interface CPVForm {
 const MerchantDataView = () => {
   const { formId } = useParams<{ formId: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, userRole } = useAuth()
   const { toast } = useToast()
   
   const [merchantData, setMerchantData] = useState<MerchantData[]>([])
@@ -462,35 +462,37 @@ const MerchantDataView = () => {
                   Initiative: {cpvForm?.initiative} | Total Merchants: {merchantData.length}
                 </p>
               </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowReassignDialog(true)}
-                  className="flex items-center gap-2"
-                  disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
-                  style={{
-                    opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
-                    cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
-                  }}
-                  title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot reassign data for inactive forms' : ''}
-                >
-                  <Users className="h-4 w-4" />
-                  Reassign Lead Assigner
-                </Button>
-                <Button
-                  onClick={() => setShowUploadDialog(true)}
-                  className="flex items-center gap-2"
-                  disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
-                  style={{
-                    opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
-                    cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
-                  }}
-                  title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot upload data to inactive forms' : ''}
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload Data
-                </Button>
-              </div>
+              {userRole !== 'super_admin' && (
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowReassignDialog(true)}
+                    className="flex items-center gap-2"
+                    disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                    style={{
+                      opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                      cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                    }}
+                    title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot reassign data for inactive forms' : ''}
+                  >
+                    <Users className="h-4 w-4" />
+                    Reassign Lead Assigner
+                  </Button>
+                  <Button
+                    onClick={() => setShowUploadDialog(true)}
+                    className="flex items-center gap-2"
+                    disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                    style={{
+                      opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                      cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                    }}
+                    title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot upload data to inactive forms' : ''}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload Data
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Card>
@@ -519,7 +521,7 @@ const MerchantDataView = () => {
                           <TableHead>Status</TableHead>
                           <TableHead>Uploaded On</TableHead>
                           <TableHead>Assigned On</TableHead>
-                          <TableHead>File</TableHead>
+                          {userRole !== 'super_admin' && <TableHead>File</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -543,28 +545,30 @@ const MerchantDataView = () => {
                                   : 'Assigned'
                               ) : 'Not Assigned'}
                             </TableCell>
-                            <TableCell>
-                              {merchant.verification_status && ['completed', 'verified'].includes(merchant.verification_status.toLowerCase()) ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDownloadFile(merchant)}
-                                  className="text-primary hover:bg-primary/10"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled
-                                  className="text-muted-foreground cursor-not-allowed"
-                                  title="Verification file will be available after CPV Agent completes the process"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </TableCell>
+                            {userRole !== 'super_admin' && (
+                              <TableCell>
+                                {merchant.verification_status && ['completed', 'verified'].includes(merchant.verification_status.toLowerCase()) ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDownloadFile(merchant)}
+                                    className="text-primary hover:bg-primary/10"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled
+                                    className="text-muted-foreground cursor-not-allowed"
+                                    title="Verification file will be available after CPV Agent completes the process"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
@@ -574,23 +578,27 @@ const MerchantDataView = () => {
               </CardContent>
             </Card>
 
-            <MerchantDataDialog
-              open={showUploadDialog}
-              onOpenChange={setShowUploadDialog}
-              onSubmit={handleUploadData}
-              title="Upload Additional Data"
-              description="Upload new merchant data and assign to a Lead Assigner. This will add to existing data."
-              isReassign={false}
-            />
+            {userRole !== 'super_admin' && (
+              <>
+                <MerchantDataDialog
+                  open={showUploadDialog}
+                  onOpenChange={setShowUploadDialog}
+                  onSubmit={handleUploadData}
+                  title="Upload Additional Data"
+                  description="Upload new merchant data and assign to a Lead Assigner. This will add to existing data."
+                  isReassign={false}
+                />
 
-            <MerchantDataDialog
-              open={showReassignDialog}
-              onOpenChange={setShowReassignDialog}
-              onSubmit={handleReassignData}
-              title="Reassign Lead Assigner"
-              description="Upload Excel file with merchant data to reassign to a new Lead Assigner. Matching records will be updated."
-              isReassign={true}
-            />
+                <MerchantDataDialog
+                  open={showReassignDialog}
+                  onOpenChange={setShowReassignDialog}
+                  onSubmit={handleReassignData}
+                  title="Reassign Lead Assigner"
+                  description="Upload Excel file with merchant data to reassign to a new Lead Assigner. Matching records will be updated."
+                  isReassign={true}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>

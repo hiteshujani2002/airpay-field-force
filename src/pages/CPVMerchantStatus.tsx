@@ -29,6 +29,8 @@ interface CPVForm {
   form_preview_data?: any;
   merchants_data?: any[];
   assigned_lead_assigner_id?: string;
+  company?: string;
+  agency?: string;
 }
 
 interface FormSection {
@@ -262,38 +264,81 @@ const CPVMerchantStatus = () => {
   const loadCPVForms = async () => {
     if (!user) return;
     
-    console.log('=== loadCPVForms DEBUG ===')
-    console.log('User ID:', user.id)
-    console.log('User role from auth:', userRole)
-    
     setLoading(true)
     try {
-      console.log('Executing Supabase query for CPV forms...')
-      const { data, error } = await supabase
+      let query = supabase
         .from('cpv_forms')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      console.log('Query result:', { data, error, count: data?.length })
+      // For Super Admin, show all forms. For Client Admin, show only their forms
+      if (userRole !== 'super_admin') {
+        query = query.eq('user_id', user.id)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
 
-      const transformedForms: CPVForm[] = data.map(form => ({
-        id: form.id,
-        name: form.name,
-        created_at: form.created_at,
-        status: form.status || 'active',
-        current_status: form.current_status || 'draft',
-        initiative: form.initiative,
-        sections: Array.isArray(form.sections) ? form.sections : [],
-        form_preview_data: form.form_preview_data,
-        merchants_data: Array.isArray(form.merchants_data) ? form.merchants_data : [],
-        assigned_lead_assigner_id: form.assigned_lead_assigner_id
-      }))
+      // For Super Admin, we need to fetch additional data for company and agency columns
+      let formsWithUserData: CPVForm[] = []
+      
+      if (userRole === 'super_admin' && data && data.length > 0) {
+        // Get form creators' company info
+        const userIds = [...new Set(data.map(form => form.user_id).filter(Boolean))]
+        const leadAssignerIds = [...new Set(data.map(form => form.assigned_lead_assigner_id).filter(Boolean))]
+        
+        const [usersData, leadAssignersData] = await Promise.all([
+          userIds.length > 0 ? supabase
+            .from('user_roles')
+            .select('user_id, company')
+            .in('user_id', userIds) : Promise.resolve({ data: [] }),
+          leadAssignerIds.length > 0 ? supabase
+            .from('user_roles')
+            .select('user_id, company')
+            .in('user_id', leadAssignerIds) : Promise.resolve({ data: [] })
+        ])
 
-      console.log('Transformed forms:', transformedForms)
-      setCPVForms(transformedForms)
+        const userCompanyMap = (usersData.data || []).reduce((acc, user) => {
+          acc[user.user_id] = user.company
+          return acc
+        }, {} as Record<string, string>)
+
+        const leadAssignerCompanyMap = (leadAssignersData.data || []).reduce((acc, user) => {
+          acc[user.user_id] = user.company
+          return acc
+        }, {} as Record<string, string>)
+
+        formsWithUserData = data.map(form => ({
+          id: form.id,
+          name: form.name,
+          created_at: form.created_at,
+          status: form.status || 'active',
+          current_status: form.current_status || 'draft',
+          initiative: form.initiative,
+          sections: Array.isArray(form.sections) ? form.sections : [],
+          form_preview_data: form.form_preview_data,
+          merchants_data: Array.isArray(form.merchants_data) ? form.merchants_data : [],
+          assigned_lead_assigner_id: form.assigned_lead_assigner_id,
+          company: userCompanyMap[form.user_id] || 'Unknown',
+          agency: form.assigned_lead_assigner_id ? (leadAssignerCompanyMap[form.assigned_lead_assigner_id] || 'Unknown') : 'Not Assigned'
+        }))
+      } else {
+        formsWithUserData = (data || []).map(form => ({
+          id: form.id,
+          name: form.name,
+          created_at: form.created_at,
+          status: form.status || 'active',
+          current_status: form.current_status || 'draft',
+          initiative: form.initiative,
+          sections: Array.isArray(form.sections) ? form.sections : [],
+          form_preview_data: form.form_preview_data,
+          merchants_data: Array.isArray(form.merchants_data) ? form.merchants_data : [],
+          assigned_lead_assigner_id: form.assigned_lead_assigner_id
+        }))
+      }
+
+      setCPVForms(formsWithUserData)
     } catch (error: any) {
       console.error('Error loading CPV forms:', error)
       toast({
@@ -1002,16 +1047,18 @@ const CPVMerchantStatus = () => {
                           More Details
                         </Button>
                         
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedFormForStatus(form)
-                            setShowStatusDialog(true)
-                          }}
-                        >
-                          Change Status
-                        </Button>
+                        {userRole === 'client_admin' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedFormForStatus(form)
+                              setShowStatusDialog(true)
+                            }}
+                          >
+                            Change Status
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1024,7 +1071,83 @@ const CPVMerchantStatus = () => {
     </div>
   )
 
-  const renderSuperAdminView = () => renderClientAdminView()
+  const renderSuperAdminView = () => (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">CPV Merchant Status - Super Admin</h1>
+        <p className="text-muted-foreground">Monitor all CPV forms and merchant verification status across the system</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All CPV Forms</CardTitle>
+          <CardDescription>
+            View and monitor all CPV forms in the system
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : cpvForms.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              No CPV forms found in the system.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sr. No</TableHead>
+                  <TableHead>CPV Form</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Agency</TableHead>
+                  <TableHead>Created On</TableHead>
+                  <TableHead>Current Status</TableHead>
+                  <TableHead>Initiative</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cpvForms.map((form, index) => (
+                  <TableRow key={form.id}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell className="font-medium">{form.name}</TableCell>
+                    <TableCell>{form.company || 'Unknown'}</TableCell>
+                    <TableCell>{form.agency || 'Not Assigned'}</TableCell>
+                    <TableCell>{new Date(form.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{getStatusBadge(form.status)}</TableCell>
+                    <TableCell>{form.initiative}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleViewForm(form)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Form
+                        </Button>
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/merchant-data/${form.id}`)}
+                        >
+                          <MoreHorizontal className="h-4 w-4 mr-1" />
+                          More Details
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
 
   // Lead Assigner View - shows CPV forms dashboard
   const renderLeadAssignerView = () => {
