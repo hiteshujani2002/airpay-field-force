@@ -319,6 +319,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_super_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       user_is_assigned_cpv_agent: {
         Args: { form_id: string; user_id: string }
         Returns: boolean
