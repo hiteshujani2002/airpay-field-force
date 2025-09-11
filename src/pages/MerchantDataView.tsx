@@ -468,6 +468,10 @@ const MerchantDataView = () => {
                   onClick={() => setShowReassignDialog(true)}
                   className="flex items-center gap-2"
                   disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                  style={{
+                    opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                    cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                  }}
                   title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot reassign data for inactive forms' : ''}
                 >
                   <Users className="h-4 w-4" />
@@ -477,6 +481,10 @@ const MerchantDataView = () => {
                   onClick={() => setShowUploadDialog(true)}
                   className="flex items-center gap-2"
                   disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                  style={{
+                    opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                    cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                  }}
                   title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot upload data to inactive forms' : ''}
                 >
                   <Upload className="h-4 w-4" />

@@ -364,6 +364,10 @@ export const CPVAgentDashboard = () => {
                      size="sm"
                      onClick={() => handleCompleteCPV(lead)}
                      disabled={lead.form_status?.toLowerCase() === 'inactive'}
+                     style={{
+                       opacity: lead.form_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                       cursor: lead.form_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                     }}
                      title={lead.form_status?.toLowerCase() === 'inactive' ? 'Cannot complete CPV for inactive forms' : ''}
                    >
                      <FileText className="h-4 w-4 mr-1" />

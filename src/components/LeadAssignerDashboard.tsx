@@ -234,11 +234,11 @@ const LeadAssignerDashboard = () => {
       case 'active':
         return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
       case 'inactive':
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Inactive</Badge>
+        return <Badge variant="secondary" className="bg-red-100 text-red-800">Inactive</Badge>
       case 'draft':
-        return <Badge variant="outline">Active</Badge>
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Draft</Badge>
       default:
-        return <Badge variant="default" className="bg-green-100 text-green-800">Active</Badge>
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Draft</Badge>
     }
   }
 
@@ -372,15 +372,27 @@ const LeadAssignerDashboard = () => {
                         </Button>
                       </TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleMoreDetails(form)}
-                            disabled={form.current_status?.toLowerCase() === 'inactive'}
-                            title={form.current_status?.toLowerCase() === 'inactive' ? 'Cannot manage inactive forms' : ''}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                          {form.current_status?.toLowerCase() === 'inactive' ? (
+                            <div className="relative">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={true}
+                                className="opacity-50 cursor-not-allowed"
+                                title="Cannot manage inactive forms"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleMoreDetails(form)}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                      </TableRow>
                   ))}

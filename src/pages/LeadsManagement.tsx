@@ -743,6 +743,10 @@ const LeadsManagement = () => {
                   <Button 
                     className="flex items-center gap-2"
                     disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                    style={{
+                      opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                      cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                    }}
                     title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot assign leads for inactive forms' : ''}
                   >
                     <Users className="h-4 w-4" />
@@ -807,6 +811,10 @@ const LeadsManagement = () => {
                     variant="outline" 
                     className="flex items-center gap-2"
                     disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                    style={{
+                      opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                      cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                    }}
                     title={cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'Cannot reassign leads for inactive forms' : ''}
                   >
                     <Upload className="h-4 w-4" />
@@ -919,16 +927,20 @@ const LeadsManagement = () => {
                                      else setSelectedMerchant(null)
                                    }}>
                                <DialogTrigger asChild>
-                                 <Button 
-                                   variant="outline" 
-                                   size="sm"
-                                   className="text-xs"
-                                   disabled={cpvForm?.current_status?.toLowerCase() === 'inactive' && merchant.verification_status === 'pending'}
-                                   title={cpvForm?.current_status?.toLowerCase() === 'inactive' && merchant.verification_status === 'pending' 
-                                     ? 'Cannot assign leads for inactive forms' : ''}
-                                 >
-                                   Not Assigned
-                                 </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="text-xs"
+                                    disabled={cpvForm?.current_status?.toLowerCase() === 'inactive'}
+                                    style={{
+                                      opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 0.5 : 1,
+                                      cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' ? 'not-allowed' : 'pointer'
+                                    }}
+                                    title={cpvForm?.current_status?.toLowerCase() === 'inactive' 
+                                      ? 'Cannot assign leads for inactive forms' : ''}
+                                  >
+                                    Not Assigned
+                                  </Button>
                                </DialogTrigger>
                               <DialogContent>
                                 <DialogHeader>
