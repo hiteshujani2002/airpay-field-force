@@ -247,11 +247,12 @@ const CPVMerchantStatus = () => {
     console.log('Loading state:', loading)
     
     // Only load CPV forms for Client Admin and Super Admin
-    // Lead Assigners and CPV Agents don't need to load forms but should set loading to false
-    if (userRole === 'client_admin' || userRole === 'super_admin') {
+    if ((userRole === 'client_admin' || userRole === 'super_admin') && user) {
       console.log('Loading forms for Client Admin/Super Admin')
       loadCPVForms()
-      loadLeadAssigners()
+      if (userRole === 'client_admin') {
+        loadLeadAssigners()
+      }
     } else if (userRole && user) {
       // For other roles, just set loading to false once we have the user role
       console.log('Setting loading to false for other roles')
@@ -262,7 +263,14 @@ const CPVMerchantStatus = () => {
   }, [user, userRole])
 
   const loadCPVForms = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping loadCPVForms')
+      return;
+    }
+    
+    console.log('=== loadCPVForms starting ===')
+    console.log('User ID:', user.id)
+    console.log('User role:', userRole)
     
     setLoading(true)
     try {
@@ -273,12 +281,23 @@ const CPVMerchantStatus = () => {
 
       // For Super Admin, show all forms. For Client Admin, show only their forms
       if (userRole !== 'super_admin') {
+        console.log('Filtering by user_id for Client Admin')
         query = query.eq('user_id', user.id)
+      } else {
+        console.log('Super Admin - fetching ALL forms')
       }
 
       const { data, error } = await query
 
-      if (error) throw error
+      console.log('=== Supabase query result ===')
+      console.log('Data:', data)
+      console.log('Error:', error)
+      console.log('Data length:', data?.length)
+
+      if (error) {
+        console.error('Supabase query error:', error)
+        throw error
+      }
 
       console.log('CPV Forms raw data:', data)
 
