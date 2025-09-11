@@ -371,16 +371,17 @@ const LeadAssignerDashboard = () => {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
-                       <TableCell className="text-center">
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           onClick={() => handleMoreDetails(form)}
-                           title={form.current_status?.toLowerCase() === 'inactive' ? 'Cannot manage inactive forms' : ''}
-                         >
-                           <MoreHorizontal className="h-4 w-4" />
-                         </Button>
-                       </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleMoreDetails(form)}
+                            disabled={form.current_status?.toLowerCase() === 'inactive'}
+                            title={form.current_status?.toLowerCase() === 'inactive' ? 'Cannot manage inactive forms' : ''}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                      </TableRow>
                   ))}
                 </TableBody>
