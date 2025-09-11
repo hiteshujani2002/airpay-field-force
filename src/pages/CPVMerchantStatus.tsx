@@ -280,6 +280,8 @@ const CPVMerchantStatus = () => {
 
       if (error) throw error
 
+      console.log('CPV Forms raw data:', data)
+
       // For Super Admin, we need to fetch additional data for company and agency columns
       let formsWithUserData: CPVForm[] = []
       
@@ -288,16 +290,32 @@ const CPVMerchantStatus = () => {
         const userIds = [...new Set(data.map(form => form.user_id).filter(Boolean))]
         const leadAssignerIds = [...new Set(data.map(form => form.assigned_lead_assigner_id).filter(Boolean))]
         
-        const [usersData, leadAssignersData] = await Promise.all([
-          userIds.length > 0 ? supabase
+        console.log('User IDs for company lookup:', userIds)
+        console.log('Lead Assigner IDs for agency lookup:', leadAssignerIds)
+
+        // Fetch user data for form creators (company info)
+        let usersData = { data: [] }
+        if (userIds.length > 0) {
+          const userResult = await supabase
             .from('user_roles')
             .select('user_id, company')
-            .in('user_id', userIds) : Promise.resolve({ data: [] }),
-          leadAssignerIds.length > 0 ? supabase
+            .in('user_id', userIds)
+          
+          console.log('Users query result:', userResult)
+          usersData = userResult
+        }
+
+        // Fetch user data for lead assigners (agency info)
+        let leadAssignersData = { data: [] }
+        if (leadAssignerIds.length > 0) {
+          const leadAssignerResult = await supabase
             .from('user_roles')
             .select('user_id, company')
-            .in('user_id', leadAssignerIds) : Promise.resolve({ data: [] })
-        ])
+            .in('user_id', leadAssignerIds)
+          
+          console.log('Lead assigners query result:', leadAssignerResult)
+          leadAssignersData = leadAssignerResult
+        }
 
         const userCompanyMap = (usersData.data || []).reduce((acc, user) => {
           acc[user.user_id] = user.company
@@ -308,6 +326,9 @@ const CPVMerchantStatus = () => {
           acc[user.user_id] = user.company
           return acc
         }, {} as Record<string, string>)
+
+        console.log('User company map:', userCompanyMap)
+        console.log('Lead assigner company map:', leadAssignerCompanyMap)
 
         formsWithUserData = data.map(form => ({
           id: form.id,
@@ -320,9 +341,11 @@ const CPVMerchantStatus = () => {
           form_preview_data: form.form_preview_data,
           merchants_data: Array.isArray(form.merchants_data) ? form.merchants_data : [],
           assigned_lead_assigner_id: form.assigned_lead_assigner_id,
-          company: userCompanyMap[form.user_id] || 'Unknown',
-          agency: form.assigned_lead_assigner_id ? (leadAssignerCompanyMap[form.assigned_lead_assigner_id] || 'Unknown') : 'Not Assigned'
+          company: userCompanyMap[form.user_id] || 'Unknown Company',
+          agency: form.assigned_lead_assigner_id ? (leadAssignerCompanyMap[form.assigned_lead_assigner_id] || 'Unknown Agency') : 'Not Assigned'
         }))
+
+        console.log('Final forms with user data:', formsWithUserData)
       } else {
         formsWithUserData = (data || []).map(form => ({
           id: form.id,
@@ -369,24 +392,36 @@ const CPVMerchantStatus = () => {
     try {
       console.log('Checking if merchant data exists for form:', form.id)
       
-      // First verify the user owns this form
-      const { data: formOwnership, error: ownershipError } = await supabase
-        .from('cpv_forms')
-        .select('id, user_id, name')
-        .eq('id', form.id)
-        .eq('user_id', user.id)
-        .single()
+      // First verify the user owns this form (for non-Super Admin users)
+      if (userRole !== 'super_admin') {
+        const { data: formOwnership, error: ownershipError } = await supabase
+          .from('cpv_forms')
+          .select('id, user_id, name')
+          .eq('id', form.id)
+          .eq('user_id', user.id)
+          .maybeSingle()
 
-      console.log('Form ownership check:', { formOwnership, ownershipError })
+        console.log('Form ownership check:', { formOwnership, ownershipError })
 
-      if (ownershipError || !formOwnership) {
-        console.error('User does not own this form or form not found')
-        toast({
-          title: 'Access Denied',
-          description: 'You do not have permission to access this form',
-          variant: 'destructive',
-        })
-        return
+        if (ownershipError) {
+          console.error('Error checking form ownership:', ownershipError)
+          toast({
+            title: 'Error',
+            description: 'Failed to verify form access',
+            variant: 'destructive',
+          })
+          return
+        }
+
+        if (!formOwnership) {
+          console.error('User does not own this form or form not found')
+          toast({
+            title: 'Access Denied',
+            description: 'You do not have permission to access this form',
+            variant: 'destructive',
+          })
+          return
+        }
       }
       
       // Check if merchant data exists for this form
@@ -445,9 +480,18 @@ const CPVMerchantStatus = () => {
         .from('user_roles')
         .select('company')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       if (userError) throw userError
+      
+      if (!currentUserData) {
+        toast({
+          title: 'Error',
+          description: 'User profile not found',
+          variant: 'destructive',
+        })
+        return
+      }
 
       // Fetch lead assigners from the same company
       const { data, error } = await supabase
@@ -492,11 +536,21 @@ const CPVMerchantStatus = () => {
         .select('id, user_id, name')
         .eq('id', selectedForm.id)
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       console.log('Form ownership check:', { formOwnership, ownershipError })
 
-      if (ownershipError || !formOwnership) {
+      if (ownershipError) {
+        console.error('Error checking form ownership:', ownershipError)
+        toast({
+          title: 'Error',
+          description: 'Failed to verify form ownership',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (!formOwnership) {
         console.error('User does not own this form or form not found')
         toast({
           title: 'Access Denied',

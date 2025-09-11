@@ -70,9 +70,20 @@ const MerchantDataView = () => {
         .from('cpv_forms')
         .select('id, name, initiative, current_status')
         .eq('id', formId)
-        .single()
+        .maybeSingle()
 
       if (formError) throw formError
+      
+      if (!formData) {
+        toast({
+          title: 'Form Not Found',
+          description: 'The requested CPV form could not be found',
+          variant: 'destructive',
+        })
+        navigate('/cpv-merchant-status')
+        return
+      }
+      
       setCPVForm(formData)
 
       // Load merchant data
@@ -209,18 +220,27 @@ const MerchantDataView = () => {
           .from('cpv_forms')
           .select('name, initiative, sections, form_preview_data')
           .eq('id', formId)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('cpv_merchant_status')
           .select('completed_form_data, verification_pdf_url')
           .eq('id', merchant.id)
-          .single()
+          .maybeSingle()
       ]);
 
-      if (formResult.error || !formResult.data) {
+      if (formResult.error) {
         toast({
           title: 'Error',
           description: 'Unable to fetch form structure',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (!formResult.data) {
+        toast({
+          title: 'Form Not Found',
+          description: 'The CPV form could not be found',
           variant: 'destructive',
         })
         return
