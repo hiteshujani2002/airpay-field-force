@@ -918,7 +918,79 @@ const LeadsManagement = () => {
                         <TableCell>{getStatusBadge(merchant.verification_status)}</TableCell>
                         <TableCell>
                           {merchant.assigned_cpv_agent_id && merchant.cpv_agent_name ? (
-                            <span className="text-sm">{merchant.cpv_agent_name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">{merchant.cpv_agent_name}</span>
+                              <Dialog open={individualAssignOpen && selectedMerchant?.id === merchant.id} 
+                                     onOpenChange={(open) => {
+                                       setIndividualAssignOpen(open)
+                                       if (open) setSelectedMerchant(merchant)
+                                       else setSelectedMerchant(null)
+                                     }}>
+                                 <DialogTrigger asChild>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="text-xs h-6 px-2"
+                                      disabled={cpvForm?.current_status?.toLowerCase() === 'inactive' || ['verified', 'completed'].includes(merchant.verification_status?.toLowerCase())}
+                                      style={{
+                                        opacity: cpvForm?.current_status?.toLowerCase() === 'inactive' || ['verified', 'completed'].includes(merchant.verification_status?.toLowerCase()) ? 0.5 : 1,
+                                        cursor: cpvForm?.current_status?.toLowerCase() === 'inactive' || ['verified', 'completed'].includes(merchant.verification_status?.toLowerCase()) ? 'not-allowed' : 'pointer'
+                                      }}
+                                      title={
+                                        cpvForm?.current_status?.toLowerCase() === 'inactive' 
+                                          ? 'Cannot reassign leads for inactive forms' 
+                                          : ['verified', 'completed'].includes(merchant.verification_status?.toLowerCase())
+                                          ? 'Cannot reassign completed verifications'
+                                          : 'Reassign to different agent'
+                                      }
+                                    >
+                                      Reassign
+                                    </Button>
+                                 </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Reassign Merchant</DialogTitle>
+                                    <DialogDescription>
+                                      Reassign {merchant.merchant_name} to a different CPV agent
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label>Select CPV Agent</Label>
+                                      <Select 
+                                        value={individualAssignAgent} 
+                                        onValueChange={setIndividualAssignAgent}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Choose an agent" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {cpvAgents.map(agent => (
+                                            <SelectItem key={agent.user_id} value={agent.user_id}>
+                                              {agent.username}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button 
+                                        onClick={handleIndividualAssign}
+                                        disabled={!individualAssignAgent}
+                                      >
+                                        Reassign
+                                      </Button>
+                                      <Button 
+                                        variant="outline" 
+                                        onClick={() => setIndividualAssignOpen(false)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
                           ) : (
                             <Dialog open={individualAssignOpen && selectedMerchant?.id === merchant.id} 
                                    onOpenChange={(open) => {

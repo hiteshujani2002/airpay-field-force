@@ -215,7 +215,7 @@ const LeadAssignerDashboard = () => {
         }
       })
 
-      console.log('Processed forms array:', formsArray)
+      console.log('Processed forms array with status debug:', formsArray.map(f => ({ id: f.id, name: f.name, current_status: f.current_status })))
       setAssignedForms(formsArray)
     } catch (error: any) {
       console.error('Error loading assigned forms:', error)
