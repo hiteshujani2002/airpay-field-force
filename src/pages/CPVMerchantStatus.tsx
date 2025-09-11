@@ -262,13 +262,20 @@ const CPVMerchantStatus = () => {
   const loadCPVForms = async () => {
     if (!user) return;
     
+    console.log('=== loadCPVForms DEBUG ===')
+    console.log('User ID:', user.id)
+    console.log('User role from auth:', userRole)
+    
     setLoading(true)
     try {
+      console.log('Executing Supabase query for CPV forms...')
       const { data, error } = await supabase
         .from('cpv_forms')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+
+      console.log('Query result:', { data, error, count: data?.length })
 
       if (error) throw error
 
@@ -285,6 +292,7 @@ const CPVMerchantStatus = () => {
         assigned_lead_assigner_id: form.assigned_lead_assigner_id
       }))
 
+      console.log('Transformed forms:', transformedForms)
       setCPVForms(transformedForms)
     } catch (error: any) {
       console.error('Error loading CPV forms:', error)
