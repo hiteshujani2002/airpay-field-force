@@ -38,7 +38,7 @@ interface User {
 const UserManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, userRole, loading } = useAuth();
+  const { user: currentUser, userRole, loading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,7 +53,7 @@ const UserManagement = () => {
 
   // Fetch users based on role-based access
   const fetchUsers = async () => {
-    if (!user || !userRole) return;
+    if (!currentUser || !userRole) return;
 
     setIsLoading(true);
     try {
@@ -84,7 +84,7 @@ const UserManagement = () => {
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!user) return;
+    if (!currentUser) return;
 
     fetchUsers();
 
@@ -108,7 +108,7 @@ const UserManagement = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [currentUser]);
 
   const filteredUsers = users.filter(user => 
     user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -125,7 +125,7 @@ const UserManagement = () => {
     try {
       console.log('Attempting synchronized deletion for user:', {
         userToDelete,
-        currentUser: user?.id,
+        currentUser: currentUser?.id,
         currentUserRole: userRole
       });
 
@@ -515,13 +515,16 @@ const UserManagement = () => {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setUserToDelete(user)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {/* Only show delete button if user can delete this user */}
+                            {(userRole === 'super_admin' || user.created_by_user_id === currentUser?.id) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setUserToDelete(user)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

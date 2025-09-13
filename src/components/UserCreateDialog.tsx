@@ -146,7 +146,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       case 'super_admin':
         return ['super_admin', 'client_admin', 'lead_assigner', 'cpv_agent'];
       case 'client_admin':
-        return ['client_admin'];
+        return ['lead_assigner'];
       case 'lead_assigner':
         return ['cpv_agent'];
       default:
@@ -175,7 +175,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       newErrors.role = "Role is required";
     }
 
-    if (!formData.company && !(userRole === 'lead_assigner' && formData.role === 'cpv_agent')) {
+    if (!formData.company && !(userRole === 'lead_assigner' && formData.role === 'cpv_agent') && userRole !== 'client_admin') {
       newErrors.company = "Company is required";
     }
 
@@ -227,7 +227,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       return;
     }
 
-    const finalCompany = (userRole === 'lead_assigner' && formData.role === 'cpv_agent') ? currentUserCompany : formData.company
+    const finalCompany = (userRole === 'lead_assigner' && formData.role === 'cpv_agent') || userRole === 'client_admin' ? currentUserCompany : formData.company
     console.log('UserCreateDialog - Final company to be sent:', finalCompany)
 
     onCreateUser({
@@ -272,8 +272,8 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       taggedToCompany: "",
       state: "",
       pinCode: "",
-      // Auto-set company for Lead Assigner creating CPV Agent
-      company: (userRole === 'lead_assigner' && role === 'cpv_agent') ? currentUserCompany : ""
+      // Auto-set company for Lead Assigner creating CPV Agent or Client Admin creating users
+      company: ((userRole === 'lead_assigner' && role === 'cpv_agent') || userRole === 'client_admin') ? currentUserCompany : ""
     }));
     
     console.log('UserCreateDialog - Company set to:', (userRole === 'lead_assigner' && role === 'cpv_agent') ? currentUserCompany : "")
@@ -348,8 +348,8 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
             )}
           </div>
 
-          {/* Company - Hide for Lead Assigner creating CPV Agent */}
-          {!(userRole === 'lead_assigner' && formData.role === 'cpv_agent') && (
+          {/* Company - Hide for Lead Assigner creating CPV Agent and Client Admin creating users */}
+          {!(userRole === 'lead_assigner' && formData.role === 'cpv_agent') && userRole !== 'client_admin' && (
             <div className="space-y-2">
               <Label htmlFor="company">
                 {formData.role === "lead_assigner" || formData.role === "cpv_agent" ? "Agency *" : "Company/Agency *"}
