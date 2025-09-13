@@ -32,7 +32,7 @@ const menuItems = [
     title: "Create CPV Forms", 
     icon: FileText,
     url: "/dashboard/create-forms",
-    roles: ['super_admin', 'client_admin'] as UserRole[],
+    roles: ['client_admin'] as UserRole[],
   },
   {
     title: "CPV Merchant Status",

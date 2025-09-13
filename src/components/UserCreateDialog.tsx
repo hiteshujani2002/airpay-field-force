@@ -146,7 +146,7 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
       case 'super_admin':
         return ['super_admin', 'client_admin', 'lead_assigner', 'cpv_agent'];
       case 'client_admin':
-        return ['lead_assigner'];
+        return ['client_admin'];
       case 'lead_assigner':
         return ['cpv_agent'];
       default:
