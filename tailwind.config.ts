@@ -18,6 +18,9 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'inter': ['Inter', 'system-ui', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -30,15 +33,15 @@ export default {
 					light: 'hsl(var(--primary-light))',
 					glow: 'hsl(var(--primary-glow))'
 				},
-				purple: {
-					50: 'hsl(var(--purple-50))',
-					100: 'hsl(var(--purple-100))',
-					200: 'hsl(var(--purple-200))',
-					300: 'hsl(var(--purple-300))',
-					400: 'hsl(var(--purple-400))',
-					500: 'hsl(var(--purple-500))',
-					600: 'hsl(var(--purple-600))',
-					700: 'hsl(var(--purple-700))'
+				blue: {
+					50: 'hsl(var(--blue-50))',
+					100: 'hsl(var(--blue-100))',
+					200: 'hsl(var(--blue-200))',
+					300: 'hsl(var(--blue-300))',
+					400: 'hsl(var(--blue-400))',
+					500: 'hsl(var(--blue-500))',
+					600: 'hsl(var(--blue-600))',
+					700: 'hsl(var(--blue-700))'
 				},
 				cpv: {
 					yellow: 'hsl(var(--cpv-yellow))'

@@ -3,7 +3,7 @@ import heroImage from "@/assets/hero-banking-verification.jpg";
 
 const Hero = () => {
   return (
-    <section className="pt-20 pb-16 sm:pt-24 sm:pb-20 bg-gradient-to-br from-purple-50 to-white">
+    <section className="pt-20 pb-16 sm:pt-24 sm:pb-20 bg-gradient-to-br from-blue-50 to-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-8">
@@ -22,14 +22,14 @@ const Hero = () => {
             </div>
 
             <div className="flex justify-center sm:justify-start">
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-purple-300 text-purple-700 hover:bg-purple-50" asChild>
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-blue-300 text-blue-700 hover:bg-blue-50" asChild>
                 <a href="/dashboard">Schedule Demo</a>
               </Button>
             </div>
           </div>
 
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-purple-600/20 rounded-3xl blur-3xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/30 to-blue-600/20 rounded-3xl blur-3xl"></div>
             <img 
               src={heroImage} 
               alt="Contact Point Verification Process" 

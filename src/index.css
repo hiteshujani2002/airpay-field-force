@@ -17,44 +17,44 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 20% 11%;
 
-    --primary: 250 84% 68%;
+    --primary: 210 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 250 100% 97%;
+    --secondary: 210 100% 97%;
     --secondary-foreground: 222 20% 11%;
 
-    --muted: 250 100% 96%;
+    --muted: 210 100% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 250 100% 97%;
+    --accent: 210 100% 97%;
     --accent-foreground: 222 20% 11%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 250 100% 91%;
-    --input: 250 100% 91%;
-    --ring: 250 84% 68%;
+    --border: 210 100% 91%;
+    --input: 210 100% 91%;
+    --ring: 210 100% 50%;
 
-    /* Custom design tokens - Purple theme inspired by modern SAAS */
-    --primary-light: 250 100% 97%;
-    --primary-glow: 250 100% 90%;
+    /* Custom design tokens - Blue theme inspired by professional UI */
+    --primary-light: 210 100% 97%;
+    --primary-glow: 210 100% 90%;
     --cpv-yellow: 45 95% 35%;
-    --purple-50: 250 100% 97%;
-    --purple-100: 249 95% 95%;
-    --purple-200: 251 91% 91%;
-    --purple-300: 250 84% 84%;
-    --purple-400: 249 75% 75%;
-    --purple-500: 250 84% 68%;
-    --purple-600: 251 91% 60%;
-    --purple-700: 252 100% 53%;
-    --gradient-primary: linear-gradient(135deg, hsl(250 84% 68%), hsl(249 75% 75%));
-    --gradient-purple: linear-gradient(135deg, hsl(250 84% 68%), hsl(251 91% 60%));
-    --gradient-subtle: linear-gradient(180deg, hsl(250 100% 97%), hsl(0 0% 100%));
-    --gradient-card: linear-gradient(135deg, hsl(250 100% 97%), hsl(249 95% 95%));
-    --shadow-elegant: 0 10px 30px -10px hsl(250 84% 68% / 0.2);
-    --shadow-soft: 0 4px 20px -4px hsl(250 50% 50% / 0.1);
-    --shadow-purple: 0 20px 40px -10px hsl(250 84% 68% / 0.3);
+    --blue-50: 210 100% 97%;
+    --blue-100: 210 95% 95%;
+    --blue-200: 210 91% 91%;
+    --blue-300: 210 84% 84%;
+    --blue-400: 210 75% 75%;
+    --blue-500: 210 100% 50%;
+    --blue-600: 210 91% 45%;
+    --blue-700: 210 100% 40%;
+    --gradient-primary: linear-gradient(135deg, hsl(210 100% 50%), hsl(210 75% 75%));
+    --gradient-blue: linear-gradient(135deg, hsl(210 100% 50%), hsl(210 91% 45%));
+    --gradient-subtle: linear-gradient(180deg, hsl(210 100% 97%), hsl(0 0% 100%));
+    --gradient-card: linear-gradient(135deg, hsl(210 100% 97%), hsl(210 95% 95%));
+    --shadow-elegant: 0 10px 30px -10px hsl(210 100% 50% / 0.2);
+    --shadow-soft: 0 4px 20px -4px hsl(210 50% 50% / 0.1);
+    --shadow-blue: 0 20px 40px -10px hsl(210 100% 50% / 0.3);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --radius: 0.5rem;
@@ -121,6 +121,6 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-inter;
   }
 }
