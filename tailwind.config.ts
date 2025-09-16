@@ -43,8 +43,8 @@ export default {
 					600: 'hsl(var(--blue-600))',
 					700: 'hsl(var(--blue-700))'
 				},
-				cpv: {
-					yellow: 'hsl(var(--cpv-yellow))'
+				airpay: {
+					blue: 'hsl(var(--airpay-blue))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',

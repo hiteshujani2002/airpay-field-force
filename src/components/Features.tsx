@@ -61,23 +61,23 @@ const Features = () => {
   ];
 
   return (
-    <section id="features" className="py-16 sm:py-20 bg-white">
+    <section id="features" className="py-16 sm:py-20 bg-gray-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-4 mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
             Powerful Features for Complete CPV Management
           </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Everything you need to digitize and streamline your contact point verification process
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
-            <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-purple-50 to-white hover:from-purple-100 hover:to-purple-50 rounded-3xl">
+            <Card key={index} className="bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl">
               <CardHeader className="text-center pb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <feature.icon className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+                  <feature.icon className="w-6 h-6 text-primary" />
                 </div>
                 <CardTitle className="text-xl text-gray-900">{feature.title}</CardTitle>
               </CardHeader>

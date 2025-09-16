@@ -45,63 +45,47 @@ const Workflow = () => {
   ];
 
   return (
-    <section id="workflow" className="py-16 sm:py-20 bg-gradient-to-br from-primary-light to-background">
+    <section id="workflow" className="py-16 sm:py-20 bg-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-4 mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
-            Streamlined CPV Workflow
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
+            How It Works
           </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             From onboarding to report generation, our platform handles every step of the verification process
           </p>
         </div>
 
-        <div className="space-y-12 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {steps.map((step, index) => (
-            <div key={index} className="group">
-              <div className={`flex flex-col lg:flex-row items-center gap-8 lg:gap-12 ${index % 2 === 1 ? 'lg:flex-row-reverse' : ''}`}>
-                {/* Content Side */}
-                <div className="flex-1 space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg">
-                      <span className="text-lg font-bold text-white">{step.number}</span>
-                    </div>
-                    <h3 className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300">
-                      {step.title}
-                    </h3>
-                  </div>
-                  
-                  <p className="text-lg text-muted-foreground leading-relaxed">
+            <div key={index} className="bg-white border border-gray-100 rounded-xl p-8 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-white">{step.number}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    {step.title}
+                  </h3>
+                  <p className="text-gray-600 leading-relaxed mb-6">
                     {step.description}
                   </p>
-                  
-                  <div className="pt-2">
-                    <Button 
-                      variant="default" 
-                      size="lg"
-                      className="bg-primary hover:bg-primary/90 text-white rounded-xl px-8 py-3 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
-                      {step.cta}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Image Side */}
-                <div className="flex-1 flex justify-center">
-                  <div className="relative w-80 h-80 rounded-3xl overflow-hidden bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center shadow-soft hover:shadow-elegant transition-all duration-500 group-hover:scale-105">
-                    <img 
-                      src={step.image} 
-                      alt={step.title}
-                      className="w-64 h-64 object-cover rounded-2xl"
-                    />
-                  </div>
+                  <Button 
+                    size="sm"
+                    className="bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-2 rounded-lg"
+                  >
+                    {step.cta}
+                  </Button>
                 </div>
               </div>
               
-              {/* Separator line between sections (except last) */}
-              {index < steps.length - 1 && (
-                <div className="mt-12 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
-              )}
+              <div className="mt-6 flex justify-center">
+                <img 
+                  src={step.image} 
+                  alt={step.title}
+                  className="w-48 h-32 object-cover rounded-lg"
+                />
+              </div>
             </div>
           ))}
         </div>
