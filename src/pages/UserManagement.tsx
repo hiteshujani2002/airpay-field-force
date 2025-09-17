@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ResponsiveTable, type Column } from "@/components/ui/responsive-table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -382,34 +382,98 @@ const UserManagement = () => {
     );
   }
 
+  // Define table columns for responsive table
+  const userColumns: Column<User>[] = [
+    {
+      key: 'username',
+      header: 'Sr.No / User Name',
+      priority: 'high',
+      mobileLabel: 'User',
+      render: (user, index) => (
+        <div className="font-medium">
+          <div className="md:hidden text-xs text-muted-foreground">#{startIndex + (index || 0) + 1}</div>
+          {user.username}
+        </div>
+      )
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      priority: 'high',
+      render: (user) => (
+        <Badge variant={getRoleBadgeVariant(user.role)}>
+          {formatRole(user.role)}
+        </Badge>
+      )
+    },
+    {
+      key: 'company',
+      header: 'Company',
+      priority: 'medium'
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      priority: 'low'
+    },
+    {
+      key: 'contact_number',
+      header: 'Contact',
+      priority: 'medium',
+      mobileLabel: 'Phone'
+    },
+    {
+      key: 'created_at',
+      header: 'Created',
+      priority: 'low',
+      render: (user) => new Date(user.created_at).toLocaleDateString()
+    },
+    {
+      key: 'updated_at',
+      header: 'Updated',
+      priority: 'low',
+      render: (user) => new Date(user.updated_at).toLocaleDateString()
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
+        {/* Mobile-First Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-start gap-2 sm:gap-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate("/dashboard")}
+              size="sm"
+              className="shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Back to Dashboard</span>
+              <span className="sm:hidden">Back</span>
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">User Management</h1>
-              <p className="text-muted-foreground">Manage users, roles, and permissions</p>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
+                User Management
+              </h1>
+              <p className="text-sm text-muted-foreground hidden sm:block">
+                Manage users, roles, and permissions
+              </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
+                <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6 sm:h-8 sm:w-8">
                     <AvatarImage src="/placeholder-avatar.jpg" />
                     <AvatarFallback>
-                      <User className="h-4 w-4" />
+                      <User className="h-3 w-3 sm:h-4 sm:w-4" />
                     </AvatarFallback>
                   </Avatar>
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-4 w-4 hidden sm:block" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -422,9 +486,9 @@ const UserManagement = () => {
         </div>
 
         {/* Search and Create */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between gap-4">
+        <Card className="mb-4 lg:mb-6">
+          <CardContent className="p-4 lg:p-6">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -439,9 +503,11 @@ const UserManagement = () => {
                   onClick={() => setShowCreateDialog(true)} 
                   className="bg-primary hover:bg-primary/90"
                   disabled={isLoading}
+                  size="sm"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Create User
+                  <span className="hidden sm:inline">Create User</span>
+                  <span className="sm:hidden">Create</span>
                 </Button>
               )}
             </div>
@@ -450,15 +516,17 @@ const UserManagement = () => {
 
         {/* User Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Users ({filteredUsers.length})</CardTitle>
-            <CardDescription>
+          <CardHeader className="px-4 lg:px-6">
+            <CardTitle className="text-lg lg:text-xl">
+              Users ({filteredUsers.length})
+            </CardTitle>
+            <CardDescription className="text-sm">
               {userRole === 'super_admin' && "Viewing all users in the system"}
-              {userRole === 'client_admin' && "Viewing Lead Assigners mapped to your company"}
+              {userRole === 'client_admin' && "Viewing Lead Assigners mapped to your company"} 
               {userRole === 'lead_assigner' && "Viewing CPV Agents you created"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 lg:px-6">
             {isLoading ? (
               <div className="text-center p-8">
                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
@@ -468,7 +536,7 @@ const UserManagement = () => {
               <div className="text-center p-8 text-muted-foreground">
                 <User className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                 <h3 className="text-lg font-medium mb-2">No Users Found</h3>
-                <p>
+                <p className="text-sm">
                   {searchTerm 
                     ? "No users match your search criteria." 
                     : "You don't have access to any users yet."
@@ -476,62 +544,33 @@ const UserManagement = () => {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sr.No</TableHead>
-                      <TableHead>User Name</TableHead>
-                      <TableHead className="w-48">Role</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Contact Number</TableHead>
-                      <TableHead>Created At</TableHead>
-                      <TableHead>Updated At</TableHead>
-                      <TableHead>Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedUsers.map((user, index) => (
-                      <TableRow key={user.id}>
-                        <TableCell>{startIndex + index + 1}</TableCell>
-                        <TableCell className="font-medium">{user.username}</TableCell>
-                        <TableCell>
-                          <Badge variant={getRoleBadgeVariant(user.role)}>
-                            {formatRole(user.role)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{user.company}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{user.contact_number}</TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(user.updated_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditUser(user)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {/* Only show delete button if user can delete this user */}
-                            {(userRole === 'super_admin' || user.created_by_user_id === currentUser?.id) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setUserToDelete(user)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <ResponsiveTable
+                data={paginatedUsers}
+                columns={userColumns}
+                actions={(user) => (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditUser(user)}
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span className="sr-only">Edit</span>
+                    </Button>
+                    {/* Only show delete button if user can delete this user */}
+                    {(userRole === 'super_admin' || user.created_by_user_id === currentUser?.id) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setUserToDelete(user)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    )}
+                  </div>
+                )}
+              />
             )}
 
             {/* Pagination */}
@@ -539,20 +578,24 @@ const UserManagement = () => {
               <div className="flex justify-center items-center gap-2 mt-6">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
                 >
-                  Previous
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Prev</span>
                 </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
+                <span className="text-xs sm:text-sm text-muted-foreground px-2">
+                  {currentPage} / {totalPages}
                 </span>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
+                  <span className="sm:hidden">Next</span>
                 </Button>
               </div>
             )}

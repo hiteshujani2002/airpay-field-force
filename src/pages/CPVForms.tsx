@@ -558,20 +558,33 @@ const CPVForms = () => {
   };
 
   const renderDashboard = () => (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+      <div className="max-w-6xl mx-auto px-4 lg:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-start gap-2 sm:gap-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate("/dashboard")}
+              size="sm"
+              className="shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Back to Dashboard</span>
+              <span className="sm:hidden">Back</span>
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">CPV Forms Dashboard</h1>
+            </div>
+          </div>
+          <Button 
+            onClick={() => setCurrentView("create")}
+            size="sm"
+            className="shrink-0"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Create Form</span>
+            <span className="sm:hidden">Create</span>
           </Button>
-          <h1 className="text-2xl font-bold">CPV Forms Dashboard</h1>
         </div>
-        <Button onClick={() => setCurrentView("create")}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Form
-        </Button>
-      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
@@ -594,19 +607,73 @@ const CPVForms = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {forms.map((form) => (
             <Card 
               key={form.id} 
-              className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => editForm(form.id)}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                setSelectedForm(form);
+                setShowFormPreview(true);
+              }}
             >
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  {form.name}
-                  <Edit className="h-4 w-4 text-muted-foreground" />
-                </CardTitle>
-                <CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base lg:text-lg truncate">{form.name}</CardTitle>
+                <CardDescription className="text-xs lg:text-sm">
+                  Initiative: {form.initiative}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-xs lg:text-sm">
+                    <span className="text-muted-foreground">Created:</span>
+                    <span>{form.createdAt}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs lg:text-sm">
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge variant="outline" className="text-xs">
+                      {form.status}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        editForm(form.id);
+                      }}
+                      className="flex-1"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      <span className="text-xs">Edit</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedForm(form);
+                        setShowFormPreview(true);
+                      }}
+                      className="flex-1"
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      <span className="text-xs">View</span>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
                   Initiative: {form.initiative}
                 </CardDescription>
               </CardHeader>
@@ -619,7 +686,6 @@ const CPVForms = () => {
                 </p>
               </CardContent>
             </Card>
-          ))}
         </div>
       )}
     </div>

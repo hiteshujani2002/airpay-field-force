@@ -74,6 +74,19 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Mobile and responsive utilities */
+    --mobile-container: 1rem;
+    --desktop-container: 2rem;
+  
+    /* Responsive shadows */
+    --shadow-mobile: 0 1px 3px hsl(var(--primary) / 0.1);
+    --shadow-card: 0 4px 12px hsl(var(--primary) / 0.1);
+    --shadow-glow: 0 0 20px hsl(var(--primary-glow) / 0.3);
+  
+    /* Mobile breakpoints */
+    --mobile-breakpoint: 768px;
+    --tablet-breakpoint: 1024px;
   }
 
   .dark {

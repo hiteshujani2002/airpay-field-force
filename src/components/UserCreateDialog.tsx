@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MobileDialog } from "@/components/ui/mobile-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -306,27 +306,27 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create New User</DialogTitle>
-        </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Username */}
-          <div className="space-y-2">
-            <Label htmlFor="username">Username *</Label>
-            <Input
-              id="username"
-              value={formData.username}
-              onChange={(e) => handleInputChange("username", e.target.value)}
-              placeholder="Enter username"
-              className={errors.username ? "border-destructive" : ""}
-            />
-            {errors.username && (
-              <p className="text-sm text-destructive">{errors.username}</p>
-            )}
-          </div>
+    <MobileDialog 
+      open={open} 
+      onOpenChange={onOpenChange}
+      title="Create New User"
+      className="max-w-md w-[95vw] max-h-[90vh] overflow-y-auto"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Username */}
+        <div className="space-y-2">
+          <Label htmlFor="username" className="text-sm font-medium">Username *</Label>
+          <Input
+            id="username"
+            value={formData.username}
+            onChange={(e) => handleInputChange("username", e.target.value)}
+            placeholder="Enter username"
+            className={errors.username ? "border-destructive" : ""}
+          />
+          {errors.username && (
+            <p className="text-xs text-destructive">{errors.username}</p>
+          )}
+        </div>
 
           {/* Role */}
           <div className="space-y-2">
@@ -471,23 +471,22 @@ const UserCreateDialog: React.FC<UserCreateDialogProps> = ({
             </>
           )}
 
-          <div className="flex gap-2 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1"
+              className="flex-1 order-2 sm:order-1"
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1">
-              Create
+            <Button type="submit" className="flex-1 order-1 sm:order-2">
+              Create User
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
-  );
+      </MobileDialog>
+    );
 };
 
 export default UserCreateDialog;

@@ -1146,15 +1146,16 @@ const CPVMerchantStatus = () => {
 
   const renderSuperAdminView = () => (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 mb-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1 sm:gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          <span className="hidden sm:inline">Back to Dashboard</span>
+          <span className="sm:hidden">Back</span>
         </Button>
       </div>
       <div>
