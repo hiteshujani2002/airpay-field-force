@@ -13,9 +13,12 @@ export default {
 		container: {
 			center: true,
 			padding: {
-				DEFAULT: '1rem',
-				sm: '1.5rem',
+				DEFAULT: '0.75rem',
+				sm: '1rem',
+				md: '1.5rem',
 				lg: '2rem',
+				xl: '2rem',
+				'2xl': '2rem'
 			},
 			screens: {
 				sm: '640px',
@@ -26,6 +29,10 @@ export default {
 			}
 		},
 		extend: {
+			screens: {
+				'xs': '375px',
+				'mobile': '480px',
+			},
 			fontFamily: {
 				'inter': ['Inter', 'system-ui', 'sans-serif'],
 			},
@@ -115,7 +122,22 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out'
-			}
+			},
+			spacing: {
+				'mobile': 'var(--mobile-container)',
+				'desktop': 'var(--desktop-container)',
+			},
+			boxShadow: {
+				'mobile': 'var(--shadow-mobile)',
+				'card': 'var(--shadow-card)',
+				'glow': 'var(--shadow-glow)',
+				'elegant': 'var(--shadow-elegant)',
+				'soft': 'var(--shadow-soft)',
+				'blue': 'var(--shadow-blue)',
+			},
+			transitionTimingFunction: {
+				'smooth': 'var(--transition-smooth)',
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],

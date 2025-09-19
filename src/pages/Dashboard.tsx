@@ -1,4 +1,4 @@
-import { Users, FileText, Building2, Shield, LogOut } from "lucide-react";
+import { Users, FileText, Building2, Shield, LogOut, Menu } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -12,6 +12,8 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,8 +66,8 @@ function AppSidebar({ userRole }: { userRole: UserRole | null }) {
 
   return (
     <Sidebar 
-      className="w-64 lg:w-64 md:w-16 hidden md:flex" 
-      collapsible="icon"
+      className="w-64 hidden lg:flex" 
+      collapsible="none"
     >
       <SidebarContent>
         <div className="p-4 border-b">
@@ -81,7 +83,7 @@ function AppSidebar({ userRole }: { userRole: UserRole | null }) {
                   <SidebarMenuButton asChild>
                     <a href={item.url} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
                       <item.icon className="h-4 w-4 flex-shrink-0" />
-                      <span className="hidden lg:block">{item.title}</span>
+                      <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -95,10 +97,9 @@ function AppSidebar({ userRole }: { userRole: UserRole | null }) {
         <div className="space-y-2">
           {userRole && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground hidden lg:block">Role:</span>
-              <Badge variant="outline" className="lg:w-auto w-full justify-center">
-                <span className="hidden lg:block">{roleLabels[userRole]}</span>
-                <span className="lg:hidden">{roleLabels[userRole].split(' ')[0]}</span>
+              <span className="text-muted-foreground">Role:</span>
+              <Badge variant="outline">
+                {roleLabels[userRole]}
               </Badge>
             </div>
           )}
@@ -109,11 +110,81 @@ function AppSidebar({ userRole }: { userRole: UserRole | null }) {
             className="w-full flex items-center gap-2"
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden lg:block">Sign Out</span>
+            <span>Sign Out</span>
           </Button>
         </div>
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+function MobileNav({ userRole }: { userRole: UserRole | null }) {
+  const { signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+
+  const filteredMenuItems = menuItems.filter(item => 
+    userRole && item.roles.includes(userRole)
+  );
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="sm" className="lg:hidden">
+          <Menu className="h-5 w-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-80 p-0">
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b">
+            <CPVHubLogo className="h-8 w-auto" />
+          </div>
+          
+          <div className="flex-1 overflow-auto">
+            <div className="p-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-4">Main Navigation</h3>
+              <nav className="space-y-2">
+                {filteredMenuItems.map((item) => (
+                  <a
+                    key={item.title}
+                    href={item.url}
+                    className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
+                    onClick={() => setOpen(false)}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span>{item.title}</span>
+                  </a>
+                ))}
+              </nav>
+            </div>
+          </div>
+          
+          <div className="p-4 border-t mt-auto">
+            <div className="space-y-3">
+              {userRole && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Role:</span>
+                  <Badge variant="outline">
+                    {roleLabels[userRole]}
+                  </Badge>
+                </div>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  signOut();
+                  setOpen(false);
+                }}
+                className="w-full flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -129,32 +200,32 @@ const Dashboard = () => {
           <AppSidebar userRole={userRole} />
           
           <div className="flex-1 flex flex-col min-w-0">
-            {/* Mobile-First Header */}
-            <header className="h-16 border-b bg-card flex items-center px-4 lg:px-6">
-              <SidebarTrigger className="mr-2 md:mr-4 md:hidden" />
-              <h1 className="text-base lg:text-lg font-semibold text-foreground truncate">
+            {/* Mobile Header */}
+            <header className="h-14 border-b bg-card flex items-center px-3 lg:px-6 sticky top-0 z-10">
+              <MobileNav userRole={userRole} />
+              <h1 className="text-lg font-semibold text-foreground truncate ml-2 lg:ml-0">
                 CPV Hub Dashboard
               </h1>
             </header>
             
             {/* Main Content */}
-            <main className="flex-1 p-4 lg:p-6 overflow-auto">
-              <div className="max-w-4xl mx-auto">
-                <div className="mb-6 lg:mb-8">
-                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">
+            <main className="flex-1 p-3 lg:p-6 overflow-auto">
+              <div className="max-w-7xl mx-auto">
+                <div className="mb-4 lg:mb-8">
+                  <h2 className="text-lg lg:text-2xl font-bold text-foreground mb-1 lg:mb-2">
                     Welcome to CPV Hub
                   </h2>
-                  <p className="text-sm lg:text-base text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Manage your offline verification processes for financial services efficiently.
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-6">
                   {menuItems
                     .filter(item => userRole && item.roles.includes(userRole))
                     .map((item) => (
                       <Card key={item.title} className="h-full">
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-2 lg:pb-3">
                           <CardTitle className="flex items-center gap-2 text-base lg:text-lg">
                             <item.icon className="h-4 w-4 lg:h-5 lg:w-5 text-primary flex-shrink-0" />
                             <span className="truncate">{item.title}</span>
