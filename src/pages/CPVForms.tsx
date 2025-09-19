@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,6 +54,8 @@ const CPVForms = () => {
   const [currentView, setCurrentView] = useState<"dashboard" | "create" | "preview" | "edit">("dashboard");
   const [currentStep, setCurrentStep] = useState(1);
   const [forms, setForms] = useState<CPVForm[]>([]);
+  const [selectedForm, setSelectedForm] = useState<CPVForm | null>(null);
+  const [showFormPreview, setShowFormPreview] = useState(false);
   const [editingFormId, setEditingFormId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -629,12 +632,6 @@ const CPVForms = () => {
                     <span className="text-muted-foreground">Created:</span>
                     <span>{form.createdAt}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs lg:text-sm">
-                    <span className="text-muted-foreground">Status:</span>
-                    <Badge variant="outline" className="text-xs">
-                      {form.status}
-                    </Badge>
-                  </div>
                   <div className="flex flex-col sm:flex-row gap-2 pt-2">
                     <Button 
                       variant="outline" 
@@ -666,26 +663,6 @@ const CPVForms = () => {
               </CardContent>
             </Card>
           ))}
-        </div>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-                  Initiative: {form.initiative}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Created: {form.createdAt}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Sections: {form.sections.length}
-                </p>
-              </CardContent>
-            </Card>
         </div>
       )}
     </div>
